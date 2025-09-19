@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "819722583382",
+    "project_id": "notekey-58325",
+    "storage_bucket": "notekey-58325.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:819722583382:android:392e9c6cc08fbe5f302af7",
+        "android_client_info": {
+          "package_name": "com.example.notekey_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWduzzXd0xEVBd1QOJj9gU201zDMXO4XU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:819722583382:android:ed0093b3827cb173302af7",
+        "android_client_info": {
+          "package_name": "com.example.vinylmachtsexywolf"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWduzzXd0xEVBd1QOJj9gU201zDMXO4XU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
