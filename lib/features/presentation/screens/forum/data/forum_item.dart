@@ -1,19 +1,23 @@
 enum ForumItemType { event, market }
 
 class ForumItem {
-  final int? id; // SQLite-ID (lokal)
-  final String? fsId; // Firestore-Dokument-ID (optional)
+  /// Lokale SQLite-ID (optional)
+  final int? id;
+
+  /// Firestore-Dokument-ID (optional)
+  final String? fsId;
+
   final ForumItemType type;
   final String title; // kurzer Titel
   final String info; // Beschreibung
-  final String? imagePath; // Dateipfad
+  final String? imagePath; // Dateipfad oder URL
   final DateTime? date; // nur für Veranstaltungen
   final int? priceCents;
-  final String? currency; // nur für Such & Find
+  final String? currency; // z. B. "EUR" (nur für Such & Find)
 
   const ForumItem({
     this.id,
-    this.fsId, //  optional & nullable
+    this.fsId,
     required this.type,
     required this.title,
     required this.info,
@@ -23,6 +27,7 @@ class ForumItem {
     this.currency,
   });
 
+  /// Kopie mit überschriebenen Feldern
   ForumItem copyWith({
     int? id,
     String? fsId,
@@ -47,7 +52,27 @@ class ForumItem {
     );
   }
 
-  Map<String, dynamic> toMap() => {
+  /// ---- SQLite-Mapping ----
+
+  /// Für `sqflite`: Map -> ForumItem
+  factory ForumItem.fromSqlMap(Map<String, dynamic> m) {
+    return ForumItem(
+      id: m['id'] as int?,
+      fsId: null, // SQLite kennt keine Firestore-ID
+      type: ForumItemType.values[m['type'] as int],
+      title: m['title'] as String,
+      info: m['info'] as String,
+      imagePath: m['image_path'] as String?,
+      date: (m['date_epoch'] as int?) != null
+          ? DateTime.fromMillisecondsSinceEpoch(m['date_epoch'] as int)
+          : null,
+      priceCents: m['price_cents'] as int?,
+      currency: m['price_currency'] as String?,
+    );
+  }
+
+  /// Für `sqflite`: ForumItem -> Map
+  Map<String, dynamic> toSqlMap() => {
         'id': id,
         'type': type.index,
         'title': title,
@@ -58,19 +83,36 @@ class ForumItem {
         'price_currency': currency,
       };
 
-  /// Mapping für **SQLite**-Rows -> ForumItem.
-  /// Firestore-ID gibt es hier nicht, deshalb fsId = null.
-  static ForumItem fromMap(Map<String, dynamic> m) => ForumItem(
-        id: m['id'] as int?,
-        fsId: null, // wichtig: keine FS-ID in SQLite
-        type: ForumItemType.values[m['type'] as int],
-        title: m['title'] as String,
-        info: m['info'] as String,
-        imagePath: m['image_path'] as String?,
-        date: (m['date_epoch'] as int?) != null
-            ? DateTime.fromMillisecondsSinceEpoch(m['date_epoch'] as int)
-            : null,
-        priceCents: m['price_cents'] as int?,
-        currency: m['price_currency'] as String?,
-      );
+  /// ---- Firestore-Mapping ----
+
+  /// Firestore: Map (+ fsId) -> ForumItem
+  factory ForumItem.fromFirestore(
+    Map<String, dynamic> m, {
+    required String fsId,
+  }) {
+    return ForumItem(
+      id: null,
+      fsId: fsId,
+      type: ForumItemType.values[(m['type'] ?? 0) as int],
+      title: (m['title'] ?? '') as String,
+      info: (m['info'] ?? '') as String,
+      imagePath: m['image_path'] as String?,
+      date: (m['date_epoch'] as int?) != null
+          ? DateTime.fromMillisecondsSinceEpoch(m['date_epoch'] as int)
+          : null,
+      priceCents: m['price_cents'] as int?,
+      currency: m['price_currency'] as String?,
+    );
+  }
+
+  /// Optional: ForumItem -> Firestore-Map (z. B. zum Schreiben)
+  Map<String, dynamic> toFirestoreMap() => {
+        'type': type.index,
+        'title': title,
+        'info': info,
+        'image_path': imagePath,
+        'date_epoch': date?.millisecondsSinceEpoch,
+        'price_cents': priceCents,
+        'price_currency': currency,
+      };
 }

@@ -4,7 +4,7 @@ import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
 
 import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
-import 'package:notekey_app/features/presentation/screens/forum/data/suchfind_db.dart';
+import 'package:notekey_app/features/presentation/screens/forum/data/suchfind_fs.dart';
 import 'such_edit_screen.dart';
 
 class SuchListScreen extends StatefulWidget {
@@ -15,17 +15,11 @@ class SuchListScreen extends StatefulWidget {
 }
 
 class _SuchListScreenState extends State<SuchListScreen> {
-  final _db = SuchFindDb();
+  final _fs = SuchFindFs();
   final _search = TextEditingController();
 
-  bool _loading = true;
-  List<ForumItem> _items = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
+  String _sortBy = 'date'; // 'date' | 'title'
+  bool _desc = false;
 
   @override
   void dispose() {
@@ -33,40 +27,40 @@ class _SuchListScreenState extends State<SuchListScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    await Future.delayed(const Duration(seconds: 2)); // Loader-Effekt
-    final list = await _db.list(withPrice: false, query: _search.text.trim());
-    if (!mounted) return;
-    setState(() {
-      _items = list;
-      _loading = false;
-    });
+  Stream<List<ForumItem>> _watch() {
+    return _fs.watch(
+      type: ForumItemType.market,
+      sortBy: _sortBy,
+      desc: _desc,
+      query: _search.text.trim().isEmpty ? null : _search.text.trim(),
+    );
   }
 
   Future<void> _openCreate() async {
     final ok = await Navigator.push<bool>(
-        context, MaterialPageRoute(builder: (_) => const SuchEditScreen()));
-    if (ok == true) _load();
+      context,
+      MaterialPageRoute(builder: (_) => const SuchEditScreen()),
+    );
+    if (ok == true) setState(() {}); // Stream aktualisiert automatisch
   }
 
   Future<void> _openEdit(ForumItem it) async {
-    final ok = await Navigator.push<bool>(context,
-        MaterialPageRoute(builder: (_) => SuchEditScreen(initial: it)));
-    if (ok == true) _load();
-  }
-
-  Future<void> _delete(ForumItem it) async {
-    if (it.id != null) await _db.delete(it.id!);
-    if (!mounted) return;
-    setState(() => _items.removeWhere((x) => x.id == it.id));
+    final ok = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => SuchEditScreen(initial: it)),
+    );
+    if (ok == true) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.hellbeige,
-      appBar: const BasicTopBar(title: 'Such', showBack: true, showMenu: false),
+      appBar: const BasicTopBar(
+        title: 'Such',
+        showBack: true,
+        showMenu: false,
+      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.dunkelbraun,
         foregroundColor: AppColors.hellbeige,
@@ -77,76 +71,118 @@ class _SuchListScreenState extends State<SuchListScreen> {
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            TextField(
-              controller: _search,
-              decoration: const InputDecoration(
-                hintText: 'Suchen (Titel oder Info)…',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (_) => _load(),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _search,
+                    decoration: const InputDecoration(
+                      hintText: 'Suchen (Titel oder Info)…',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                DropdownButton<String>(
+                  value: _sortBy,
+                  items: const [
+                    DropdownMenuItem(value: 'date', child: Text('Datum')),
+                    DropdownMenuItem(value: 'title', child: Text('Titel')),
+                  ],
+                  onChanged: (v) {
+                    if (v == null) return;
+                    setState(() => _sortBy = v);
+                  },
+                ),
+                IconButton(
+                  onPressed: () => setState(() => _desc = !_desc),
+                  icon: Icon(_desc ? Icons.south : Icons.north),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
+
+            // Firestore Live Liste
             Expanded(
-              child: _loading
-                  ? const Center(
+              child: StreamBuilder<List<ForumItem>>(
+                stream: _watch(),
+                builder: (context, snap) {
+                  if (snap.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SelectableText('Fehler: ${snap.error}'),
+                    );
+                  }
+                  if (!snap.hasData) {
+                    return const Center(
                       child: SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2)))
-                  : (_items.isEmpty
-                      ? const Center(child: Text('Noch keine Einträge.'))
-                      : ListView.separated(
-                          itemCount: _items.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (c, i) {
-                            final it = _items[i];
-                            final hasImage = it.imagePath != null &&
-                                File(it.imagePath!).existsSync();
-                            return Dismissible(
-                              key: ValueKey(it.id ??
-                                  '${it.title}-$i-${it.imagePath ?? ''}'),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                color: Colors.redAccent,
-                                child: const Icon(Icons.delete,
-                                    color: Colors.white),
-                              ),
-                              onDismissed: (_) => _delete(it),
-                              child: Card(
-                                color: AppColors.hellbeige,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14)),
-                                child: ListTile(
-                                  leading: hasImage
-                                      ? ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          child: Image.file(
-                                            File(it.imagePath!),
-                                            width: 56,
-                                            height: 56,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) =>
-                                                const Icon(Icons.broken_image),
-                                          ),
-                                        )
-                                      : const Icon(Icons.search),
-                                  title: Text(it.title.isEmpty
-                                      ? 'Ohne Titel'
-                                      : it.title),
-                                  subtitle:
-                                      it.info.isEmpty ? null : Text(it.info),
-                                  onTap: () => _openEdit(it),
-                                ),
-                              ),
-                            );
-                          },
-                        )),
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  }
+
+                  final items = snap.data!;
+                  if (items.isEmpty) {
+                    return const Center(child: Text('Noch keine Einträge.'));
+                  }
+
+                  return ListView.separated(
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (c, i) {
+                      final it = items[i];
+                      final hasImage = it.imagePath != null &&
+                          File(it.imagePath!).existsSync();
+
+                      return Dismissible(
+                        key: ValueKey(
+                            it.fsId ?? '${it.title}-$i-${it.imagePath ?? ''}'),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          color: Colors.redAccent,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        onDismissed: (_) async {
+                          if (it.fsId != null) {
+                            await _fs.delete(it.fsId!);
+                          }
+                        },
+                        child: Card(
+                          color: AppColors.hellbeige,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: ListTile(
+                            leading: hasImage
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      File(it.imagePath!),
+                                      width: 56,
+                                      height: 56,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Icon(Icons.broken_image),
+                                    ),
+                                  )
+                                : const Icon(Icons.search),
+                            title: Text(
+                                it.title.isEmpty ? 'Ohne Titel' : it.title),
+                            subtitle: it.info.isEmpty ? null : Text(it.info),
+                            onTap: () => _openEdit(it),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),

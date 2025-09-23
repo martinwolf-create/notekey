@@ -1,43 +1,37 @@
 import 'package:sqflite/sqflite.dart';
-import 'app_database.dart';
 import 'forum_item.dart';
 
-class SuchFindDb {
-  final _db = AppDatabase();
+/// SQLite-DB für "Such & Find" (Marktplatz)
+class SuchfindDb {
+  final Database db;
+  SuchfindDb(this.db);
 
-  Future<int> insert(ForumItem i) async {
-    final d = await _db.db;
-    return d.insert('items', i.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<int> insert(ForumItem item) {
+    // factory-konform
+    return db.insert('items', item.toSqlMap());
   }
 
-  Future<int> update(ForumItem i) async {
-    final d = await _db.db;
-    return d.update('items', i.toMap(), where: 'id=?', whereArgs: [i.id]);
+  Future<int> delete(int id) {
+    return db.delete('items', where: 'id=?', whereArgs: [id]);
   }
 
-  Future<int> delete(int id) async {
-    final d = await _db.db;
-    return d.delete('items', where: 'id=?', whereArgs: [id]);
+  Future<int> updateImagePath(int id, String newPath) {
+    return db.update(
+      'items',
+      {'image_path': newPath},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
-  /// withPrice=false -> "Such" (ohne Preis)
-  /// withPrice=true  -> "Find" (mit Preis)
   Future<List<ForumItem>> list({
-    required bool withPrice,
     String? query,
-    String sortBy = 'title', // 'title' | 'price'
+    String sortBy = 'date',
     bool desc = false,
   }) async {
-    final d = await _db.db;
-    final where = <String>['type = ?'];
-    final args = <Object?>[ForumItemType.market.index];
+    final where = <String>[];
+    final args = <Object?>[];
 
-    if (withPrice) {
-      where.add('price_cents IS NOT NULL');
-    } else {
-      where.add('price_cents IS NULL');
-    }
     if (query != null && query.trim().isNotEmpty) {
       where.add('(title LIKE ? OR info LIKE ?)');
       args.addAll(['%$query%', '%$query%']);
@@ -48,16 +42,21 @@ class SuchFindDb {
       case 'price':
         orderBy = 'price_cents ${desc ? 'DESC' : 'ASC'} NULLS LAST';
         break;
-      default:
+      case 'title':
         orderBy = 'LOWER(title) ${desc ? 'DESC' : 'ASC'}';
+        break;
+      default:
+        orderBy = 'date_epoch ${desc ? 'DESC' : 'ASC'} NULLS LAST';
     }
 
-    final rows = await d.query(
+    final rows = await db.query(
       'items',
-      where: where.join(' AND '),
-      whereArgs: args,
+      where: where.isEmpty ? null : where.join(' AND '),
+      whereArgs: args.isEmpty ? null : args,
       orderBy: orderBy,
     );
-    return rows.map(ForumItem.fromMap).toList();
+
+    // factory-konform
+    return rows.map(ForumItem.fromSqlMap).toList();
   }
 }

@@ -37,13 +37,13 @@ class VeranstaltungenFs {
   }) {
     Query<Map<String, dynamic>> q =
         _db.collection(_col).where('type', isEqualTo: type.index);
-
-    final orderField = sortBy == 'title'
-        ? 'title'
-        : sortBy == 'price'
-            ? 'price_cents'
-            : 'date_epoch';
-    q = q.orderBy(orderField, descending: desc);
+    //AUSKOMMENTIERT für Abgabe
+    //final orderField = sortBy == 'title'
+    //  ? 'title'
+    //  : sortBy == 'price'
+    //    ? 'price_cents'
+    //      : 'date_epoch';
+    //q = q.orderBy(orderField, descending: desc);
 
     return q.snapshots().map((snap) {
       var list = snap.docs.map(_fromDoc).toList();

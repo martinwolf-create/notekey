@@ -4,23 +4,8 @@ import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
 
 import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
-import 'package:notekey_app/features/presentation/screens/forum/data/suchfind_db.dart';
-import 'find_edit_screen.dart';
-
-String _currencySymbol(String? c) {
-  switch (c) {
-    case 'USD':
-      return '\$';
-    case 'GBP':
-      return '£';
-    case 'JPY':
-      return '¥';
-    case 'CHF':
-      return 'CHF';
-    default:
-      return '€';
-  }
-}
+import 'package:notekey_app/features/presentation/screens/forum/data/suchfind_fs.dart';
+import 'package:notekey_app/features/presentation/screens/forum/suchfind/find/find_edit_screen.dart';
 
 class FindListScreen extends StatefulWidget {
   const FindListScreen({super.key});
@@ -30,17 +15,10 @@ class FindListScreen extends StatefulWidget {
 }
 
 class _FindListScreenState extends State<FindListScreen> {
-  final _db = SuchFindDb();
+  final _sf = SuchFindFs();
   final _search = TextEditingController();
-
-  bool _loading = true;
-  List<ForumItem> _items = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
+  String _sortBy = 'date'; // 'date' | 'title' | 'price'
+  bool _desc = false;
 
   @override
   void dispose() {
@@ -48,41 +26,22 @@ class _FindListScreenState extends State<FindListScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    final list = await _db.list(
-        withPrice: true, query: _search.text.trim(), sortBy: 'price');
-    if (!mounted) return;
-    setState(() {
-      _items = list;
-      _loading = false;
-    });
-  }
-
   Future<void> _openCreate() async {
-    final ok = await Navigator.push<bool>(
-        context, MaterialPageRoute(builder: (_) => const FindEditScreen()));
-    if (ok == true) _load();
-  }
-
-  Future<void> _openEdit(ForumItem it) async {
-    final ok = await Navigator.push<bool>(context,
-        MaterialPageRoute(builder: (_) => FindEditScreen(initial: it)));
-    if (ok == true) _load();
-  }
-
-  Future<void> _delete(ForumItem it) async {
-    if (it.id != null) await _db.delete(it.id!);
-    if (!mounted) return;
-    setState(() => _items.removeWhere((x) => x.id == it.id));
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const FindEditScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.hellbeige,
-      appBar: const BasicTopBar(title: 'Find', showBack: true, showMenu: false),
+      appBar: const BasicTopBar(
+        title: 'Such & Find',
+        showBack: true,
+        showMenu: false,
+      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.dunkelbraun,
         foregroundColor: AppColors.hellbeige,
@@ -93,81 +52,138 @@ class _FindListScreenState extends State<FindListScreen> {
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            TextField(
-              controller: _search,
-              decoration: const InputDecoration(
-                hintText: 'Suchen (Titel oder Info)…',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (_) => _load(),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _search,
+                    decoration: const InputDecoration(
+                      hintText: 'Suchen (Titel oder Info)…',
+                      prefixIcon: const Icon(Icons.search),
+                      border: const OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                DropdownButton<String>(
+                  value: _sortBy,
+                  items: const [
+                    DropdownMenuItem(value: 'date', child: Text('Datum')),
+                    DropdownMenuItem(value: 'title', child: Text('Titel')),
+                    DropdownMenuItem(value: 'price', child: Text('Preis')),
+                  ],
+                  onChanged: (v) {
+                    if (v == null) return;
+                    setState(() => _sortBy = v);
+                  },
+                ),
+                IconButton(
+                  onPressed: () => setState(() => _desc = !_desc),
+                  icon: Icon(_desc ? Icons.south : Icons.north),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
+
+            // ---- Firestore-Live-Liste ----
             Expanded(
-              child: _loading
-                  ? const Center(
-                      child: SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2)))
-                  : (_items.isEmpty
-                      ? const Center(child: Text('Noch keine Einträge.'))
-                      : ListView.separated(
-                          itemCount: _items.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (c, i) {
-                            final it = _items[i];
-                            final hasImage = it.imagePath != null &&
-                                File(it.imagePath!).existsSync();
-                            final price = it.priceCents != null
-                                ? '${_currencySymbol(it.currency)} ${(it.priceCents! / 100).toStringAsFixed(2)}'
-                                : null;
-                            return Dismissible(
-                              key: ValueKey(it.id ??
-                                  '${it.title}-$i-${it.imagePath ?? ''}'),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                color: Colors.redAccent,
-                                child: const Icon(Icons.delete,
-                                    color: Colors.white),
-                              ),
-                              onDismissed: (_) => _delete(it),
-                              child: Card(
-                                color: AppColors.hellbeige,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14)),
-                                child: ListTile(
-                                  leading: hasImage
-                                      ? ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          child: Image.file(
-                                            File(it.imagePath!),
-                                            width: 56,
-                                            height: 56,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) =>
-                                                const Icon(Icons.broken_image),
-                                          ),
-                                        )
-                                      : const Icon(Icons.sell_outlined),
-                                  title: Text(it.title.isEmpty
-                                      ? 'Ohne Titel'
-                                      : it.title),
-                                  subtitle: Text([
-                                    if (price != null) price,
-                                    if (it.info.isNotEmpty) it.info,
-                                  ].join('  ·  ')),
-                                  onTap: () => _openEdit(it),
+              child: StreamBuilder<List<ForumItem>>(
+                stream: _sf.watch(
+                  type: ForumItemType.market,
+                  sortBy: _sortBy,
+                  desc: _desc,
+                  query:
+                      _search.text.trim().isEmpty ? null : _search.text.trim(),
+                ),
+                builder: (context, snap) {
+                  if (snap.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SingleChildScrollView(
+                        child: SelectableText(
+                          'Fehler beim Laden:\n\n${snap.error}\n\n'
+                          'Index-Tipp: Collection "suchfind" → '
+                          'type Asc + date_epoch/price_cents/title Asc.',
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (!snap.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final items = snap.data!;
+                  if (items.isEmpty) {
+                    return const Center(child: Text('Noch keine Einträge.'));
+                  }
+
+                  return ListView.separated(
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (c, i) {
+                      final it = items[i];
+                      final hasImage = it.imagePath != null &&
+                          File(it.imagePath!).existsSync();
+
+                      final priceText = (it.priceCents != null &&
+                              it.currency != null)
+                          ? '${(it.priceCents! / 100).toStringAsFixed(2)} ${it.currency}'
+                          : 'Preis n. a.';
+
+                      return Dismissible(
+                        key: ValueKey(it.fsId ?? '$i-${it.title}'),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          color: Colors.redAccent,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        onDismissed: (_) async {
+                          if (it.fsId != null) {
+                            await _sf.delete(it.fsId!);
+                          }
+                        },
+                        child: Card(
+                          color: AppColors.hellbeige,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: ListTile(
+                            leading: hasImage
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      File(it.imagePath!),
+                                      width: 56,
+                                      height: 56,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Icon(Icons.broken_image),
+                                    ),
+                                  )
+                                : const Icon(Icons.shopping_bag_outlined),
+                            title: Text(
+                                it.title.isEmpty ? 'Ohne Titel' : it.title),
+                            subtitle: Text('${it.info}\n$priceText'),
+                            isThreeLine: true,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => FindEditScreen(initial: it),
                                 ),
-                              ),
-                            );
-                          },
-                        )),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),

@@ -147,20 +147,39 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
               child: StreamBuilder<List<ForumItem>>(
                 stream: _fs.watch(
                   type: ForumItemType.event,
-                  sortBy: _sortBy,
-                  desc: _desc,
+                  // AUSKOMMENTIERT für Abgabe
+                  //sortBy: _sortBy,
+                  //desc: _desc,
                   query:
                       _search.text.trim().isEmpty ? null : _search.text.trim(),
                 ),
                 builder: (context, snap) {
+                  // NEU: Fehler sichtbar machen (z. B. "The query requires an index")
+                  if (snap.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SingleChildScrollView(
+                        child: SelectableText(
+                          'Fehler beim Laden:\n\n${snap.error}\n\n'
+                          'Tipp: Wenn hier "requires an index" steht, '
+                          'erstelle in Firestore > Indizes einen Composite Index:\n'
+                          'Collection: veranstaltung | type: Asc | date_epoch: Asc '
+                          'und (optional) type: Asc | title: Asc.',
+                        ),
+                      ),
+                    );
+                  }
+
                   if (!snap.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   }
+
                   final items = snap.data!;
                   if (items.isEmpty) {
                     return const Center(
                         child: Text('Keine Veranstaltungen angelegt.'));
                   }
+
                   return ListView.separated(
                     itemCount: items.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),

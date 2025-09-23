@@ -4,6 +4,7 @@ import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
 import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
 import 'package:notekey_app/features/presentation/screens/forum/data/suchfind_db.dart';
+import 'package:notekey_app/features/presentation/screens/forum/data/suchfind_fs.dart';
 import 'package:notekey_app/helpers/image_helper.dart';
 
 class SuchEditScreen extends StatefulWidget {
@@ -15,7 +16,7 @@ class SuchEditScreen extends StatefulWidget {
 }
 
 class _SuchEditScreenState extends State<SuchEditScreen> {
-  final _db = SuchFindDb();
+  final _fs = SuchFindFs();
   final _title = TextEditingController();
   final _info = TextEditingController();
   String? _imagePath;
@@ -75,10 +76,10 @@ class _SuchEditScreenState extends State<SuchEditScreen> {
       currency: null,
     );
 
-    if (widget.initial == null) {
-      await _db.insert(item);
+    if (widget.initial?.fsId == null) {
+      await _fs.add(item);
     } else {
-      await _db.update(item);
+      await _fs.update(widget.initial!.fsId!, item);
     }
 
     if (!mounted) return;

@@ -87,11 +87,10 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
         content: Row(
           children: const [
             SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                  color: Colors.white, strokeWidth: 2),
-            ),
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2)),
             SizedBox(width: 12),
             Text('Speichern…'),
           ],
@@ -109,7 +108,6 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
       date: _date,
     );
 
-    // -> Firestore speichern
     final saved = await VeranstaltungenFs().add(draft);
 
     if (!mounted) return;

@@ -1,7 +1,6 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'forum_item.dart';
-import 'todo_item.dart';
 
 class ForumDb {
   static final ForumDb _i = ForumDb._();
@@ -38,7 +37,7 @@ class ForumDb {
     final d = await db;
     return d.insert(
       'items',
-      item.toMap(),
+      item.toSqlMap(), // factory-konform
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -48,7 +47,6 @@ class ForumDb {
     return d.delete('items', where: 'id=?', whereArgs: [id]);
   }
 
-  /// Bildpfad aktualisieren
   Future<int> updateImagePath(int id, String newPath) async {
     final d = await db;
     return d.update(
@@ -68,6 +66,7 @@ class ForumDb {
     final d = await db;
     final where = <String>['type=?'];
     final args = <Object?>[type.index];
+
     if (query != null && query.trim().isNotEmpty) {
       where.add('(title LIKE ? OR info LIKE ?)');
       args.addAll(['%$query%', '%$query%']);
@@ -91,6 +90,6 @@ class ForumDb {
       whereArgs: args,
       orderBy: orderBy,
     );
-    return rows.map(ForumItem.fromMap).toList();
+    return rows.map(ForumItem.fromSqlMap).toList(); // factory-konform
   }
 }

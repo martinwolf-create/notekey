@@ -14,8 +14,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
-    name: 'NOTEkey-app',
   );
+  debugPrint('FIREBASE PROJECT: ${Firebase.app().options.projectId}');
 
   final AuthRepository auth = FirebaseAuthRepository();
   runApp(MyApp(auth: auth));
