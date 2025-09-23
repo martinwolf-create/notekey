@@ -1,7 +1,8 @@
 enum ForumItemType { event, market }
 
 class ForumItem {
-  final int? id;
+  final int? id; // SQLite-ID (lokal)
+  final String? fsId; // Firestore-Dokument-ID (optional)
   final ForumItemType type;
   final String title; // kurzer Titel
   final String info; // Beschreibung
@@ -10,8 +11,9 @@ class ForumItem {
   final int? priceCents;
   final String? currency; // nur für Such & Find
 
-  ForumItem({
+  const ForumItem({
     this.id,
+    this.fsId, //  optional & nullable
     required this.type,
     required this.title,
     required this.info,
@@ -23,6 +25,7 @@ class ForumItem {
 
   ForumItem copyWith({
     int? id,
+    String? fsId,
     ForumItemType? type,
     String? title,
     String? info,
@@ -33,6 +36,7 @@ class ForumItem {
   }) {
     return ForumItem(
       id: id ?? this.id,
+      fsId: fsId ?? this.fsId,
       type: type ?? this.type,
       title: title ?? this.title,
       info: info ?? this.info,
@@ -54,8 +58,11 @@ class ForumItem {
         'price_currency': currency,
       };
 
+  /// Mapping für **SQLite**-Rows -> ForumItem.
+  /// Firestore-ID gibt es hier nicht, deshalb fsId = null.
   static ForumItem fromMap(Map<String, dynamic> m) => ForumItem(
         id: m['id'] as int?,
+        fsId: null, // wichtig: keine FS-ID in SQLite
         type: ForumItemType.values[m['type'] as int],
         title: m['title'] as String,
         info: m['info'] as String,

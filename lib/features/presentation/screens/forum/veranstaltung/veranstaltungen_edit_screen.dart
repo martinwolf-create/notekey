@@ -2,11 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
-import 'package:notekey_app/features/presentation/screens/forum/data/forum_db.dart';
 import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
 import 'package:notekey_app/helpers/image_helper.dart';
 import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltungen_list_screen.dart'
     show CreatePreset;
+import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltungen_fs.dart';
 
 class VeranstaltungenScreen extends StatefulWidget {
   final CreatePreset? preset;
@@ -28,7 +28,6 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
   @override
   void initState() {
     super.initState();
-    // Preset-Aktion direkt starten (ohne setState/await in init)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       switch (widget.preset) {
         case CreatePreset.camera:
@@ -81,7 +80,6 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
     if (_isSaving) return;
     setState(() => _isSaving = true);
 
-    // SnackBar mit Lade-Indikator
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         duration: const Duration(seconds: 3),
@@ -101,7 +99,7 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
       ),
     );
 
-    final item = ForumItem(
+    final draft = ForumItem(
       type: ForumItemType.event,
       title: _titleController.text.trim().isEmpty
           ? 'Ohne Titel'
@@ -110,11 +108,12 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
       imagePath: _imagePath,
       date: _date,
     );
-    await ForumDb().insert(item);
-    await Future.delayed(const Duration(seconds: 3));
+
+    // -> Firestore speichern
+    final saved = await VeranstaltungenFs().add(draft);
 
     if (!mounted) return;
-    Navigator.pop(context, item);
+    Navigator.pop(context, saved);
   }
 
   @override

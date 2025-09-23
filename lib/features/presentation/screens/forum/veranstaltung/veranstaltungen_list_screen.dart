@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
-import 'package:notekey_app/features/presentation/screens/forum/data/forum_db.dart';
 import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
 import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltungen_edit_screen.dart';
+import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltungen_list_screen.dart'
+    show CreatePreset;
+import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltungen_fs.dart';
 
 enum CreatePreset { camera, gallery, info, date }
 
@@ -17,18 +19,10 @@ class VeranstaltungenListScreen extends StatefulWidget {
 }
 
 class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
-  final _db = ForumDb();
+  final _fs = VeranstaltungenFs();
   final _search = TextEditingController();
-  List<ForumItem> _items = [];
-  bool _loading = true;
   String _sortBy = 'date';
   bool _desc = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
 
   @override
   void dispose() {
@@ -36,45 +30,18 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    // optional „fancy“ Start-Ladezeit
-    await Future.delayed(const Duration(seconds: 2));
-    final items = await _db.list(
-      type: ForumItemType.event,
-      query: _search.text.trim().isEmpty ? null : _search.text.trim(),
-      sortBy: _sortBy,
-      desc: _desc,
-    );
-    if (!mounted) return;
-    setState(() {
-      _items = items;
-      _loading = false;
-    });
-  }
-
-  void _refresh() => _load();
-
   Future<void> _openCreate({CreatePreset? preset}) async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => VeranstaltungenScreen(preset: preset),
       ),
     );
-
-    if (result is ForumItem) {
-      // vorn einfügen, ohne async setState
-      setState(() => _items = [result, ..._items]);
-    } else {
-      _refresh();
-    }
+    // Kein setState nötig: Stream aktualisiert automatisch
   }
 
   void _showFabMenu() {
-    // Sofort Erstellen-Screen öffnen …
     _openCreate();
-    // …und gleichzeitig das Schnellmenü einblenden
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.hellbeige,
@@ -152,7 +119,7 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
                       prefixIcon: Icon(Icons.search),
                       border: OutlineInputBorder(),
                     ),
-                    onSubmitted: (_) => _refresh(),
+                    onSubmitted: (_) => setState(() {}), // Stream neu bauen
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -165,81 +132,91 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
                   onChanged: (v) {
                     if (v == null) return;
                     setState(() => _sortBy = v);
-                    _refresh();
                   },
                 ),
                 IconButton(
-                  onPressed: () {
-                    setState(() => _desc = !_desc);
-                    _refresh();
-                  },
+                  onPressed: () => setState(() => _desc = !_desc),
                   icon: Icon(_desc ? Icons.south : Icons.north),
                 ),
               ],
             ),
             const SizedBox(height: 8),
+
+            // ---- Firestore-Live-Liste ----
             Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _items.isEmpty
-                      ? const Center(
-                          child: Text('Keine Veranstaltungen angelegt.'))
-                      : ListView.separated(
-                          itemCount: _items.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (c, i) {
-                            final it = _items[i];
-                            final hasImage = it.imagePath != null &&
-                                File(it.imagePath!).existsSync();
-                            return Dismissible(
-                              key: ValueKey(it.id ?? '$i-${it.title}'),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                color: Colors.redAccent,
-                                child: const Icon(Icons.delete,
-                                    color: Colors.white),
-                              ),
-                              onDismissed: (_) async {
-                                if (it.id != null) await _db.delete(it.id!);
-                                setState(() => _items.removeAt(i));
-                              },
-                              child: Card(
-                                color: AppColors.hellbeige,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: ListTile(
-                                  leading: hasImage
-                                      ? ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          child: Image.file(
-                                            File(it.imagePath!),
-                                            width: 56,
-                                            height: 56,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) =>
-                                                const Icon(Icons.broken_image),
-                                          ),
-                                        )
-                                      : const Icon(Icons.event_outlined),
-                                  title: Text(it.title.isEmpty
-                                      ? 'Ohne Titel'
-                                      : it.title),
-                                  subtitle: Text(
-                                    it.date != null
-                                        ? '${it.date!.day.toString().padLeft(2, '0')}.${it.date!.month.toString().padLeft(2, '0')}.${it.date!.year}  ·  ${it.info}'
-                                        : it.info,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
+              child: StreamBuilder<List<ForumItem>>(
+                stream: _fs.watch(
+                  type: ForumItemType.event,
+                  sortBy: _sortBy,
+                  desc: _desc,
+                  query:
+                      _search.text.trim().isEmpty ? null : _search.text.trim(),
+                ),
+                builder: (context, snap) {
+                  if (!snap.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final items = snap.data!;
+                  if (items.isEmpty) {
+                    return const Center(
+                        child: Text('Keine Veranstaltungen angelegt.'));
+                  }
+                  return ListView.separated(
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (c, i) {
+                      final it = items[i];
+                      final hasImage = it.imagePath != null &&
+                          File(it.imagePath!).existsSync();
+
+                      return Dismissible(
+                        key: ValueKey(it.fsId ?? '${i}-${it.title}'),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          color: Colors.redAccent,
+                          child: const Icon(Icons.delete, color: Colors.white),
                         ),
+                        onDismissed: (_) async {
+                          if (it.fsId != null) {
+                            await _fs.delete(it.fsId!);
+                          }
+                          // Stream aktualisiert automatisch
+                        },
+                        child: Card(
+                          color: AppColors.hellbeige,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: ListTile(
+                            leading: hasImage
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      File(it.imagePath!),
+                                      width: 56,
+                                      height: 56,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Icon(Icons.broken_image),
+                                    ),
+                                  )
+                                : const Icon(Icons.event_outlined),
+                            title: Text(
+                                it.title.isEmpty ? 'Ohne Titel' : it.title),
+                            subtitle: Text(
+                              it.date != null
+                                  ? '${it.date!.day.toString().padLeft(2, '0')}.${it.date!.month.toString().padLeft(2, '0')}.${it.date!.year}  ·  ${it.info}'
+                                  : it.info,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
