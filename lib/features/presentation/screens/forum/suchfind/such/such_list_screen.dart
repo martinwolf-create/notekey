@@ -29,10 +29,12 @@ class _SuchListScreenState extends State<SuchListScreen> {
 
   Stream<List<ForumItem>> _watch() {
     return _fs.watch(
+      kind: MarketKind.such,
       type: ForumItemType.market,
-      sortBy: _sortBy,
-      desc: _desc,
+      // sortBy: _sortBy,
+      // desc: _desc,
       query: _search.text.trim().isEmpty ? null : _search.text.trim(),
+      //nur such-Einträge anzeigen
     );
   }
 

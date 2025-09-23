@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
 
+enum MarketKind { such, find }
+
 /// Firestore-Service für "Such & Find" (Marktplatz)
 /// Collection: `suchfind`
 class SuchFindFs {
@@ -8,9 +10,10 @@ class SuchFindFs {
   static const _col = 'suchfind';
 
   /// App -> Firestore: Eintrag anlegen, gespeichertes Item zurückgeben
-  Future<ForumItem> add(ForumItem item) async {
+  Future<ForumItem> add(ForumItem item, {required MarketKind kind}) async {
     final ref = await _db.collection(_col).add({
       ...item.toFirestoreMap(),
+      'market_kind': kind.name, //für Such/Find zwei getrennte ordner in FS
       'createdAt': FieldValue.serverTimestamp(),
     });
     final snap = await ref.get();
@@ -21,21 +24,26 @@ class SuchFindFs {
   /// Firestore  Live-Stream aller Einträge
   /// sortBy: 'date' | 'title' | 'price'
   Stream<List<ForumItem>> watch({
+    required MarketKind kind,
     ForumItemType type = ForumItemType.market,
     String sortBy = 'date',
     bool desc = false,
     String? query,
   }) {
-    Query<Map<String, dynamic>> q =
-        _db.collection(_col).where('type', isEqualTo: type.index);
+    Query<Map<String, dynamic>> q = _db
+        .collection(_col)
+        .where('type', isEqualTo: type.index)
+        .where('market_kind', isEqualTo: kind.name);
 
+    //AUSKOMMENTIERT für Abgabe / Sortierung nach datum,abc & preis deaktiviert
+    /*
     final orderField = switch (sortBy) {
       'title' => 'title',
       'price' => 'price_cents',
       _ => 'date_epoch',
     };
     q = q.orderBy(orderField, descending: desc);
-
+    */
     return q.snapshots().map((snap) {
       var list = snap.docs
           .map((d) => ForumItem.fromFirestore(d.data(), fsId: d.id))

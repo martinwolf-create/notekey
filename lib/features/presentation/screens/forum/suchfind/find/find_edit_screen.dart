@@ -82,7 +82,7 @@ class _FindEditScreenState extends State<FindEditScreen> {
     );
 
     if (widget.initial?.fsId == null) {
-      await _sf.add(base);
+      await _sf.add(base, kind: MarketKind.find); //NEU: kind mitgeben
     } else {
       await _sf.update(widget.initial!.fsId!, base);
     }

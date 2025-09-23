@@ -187,7 +187,7 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
                       final it = items[i];
                       final hasImage = it.imagePath != null &&
                           File(it.imagePath!).existsSync();
-
+                      // Dismissible zum Löschen
                       return Dismissible(
                         key: ValueKey(it.fsId ?? '${i}-${it.title}'),
                         direction: DismissDirection.endToStart,

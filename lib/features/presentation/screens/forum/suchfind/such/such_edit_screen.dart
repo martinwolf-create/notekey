@@ -77,7 +77,7 @@ class _SuchEditScreenState extends State<SuchEditScreen> {
     );
 
     if (widget.initial?.fsId == null) {
-      await _fs.add(item);
+      await _fs.add(item, kind: MarketKind.such); //NEU: kind mitgeben
     } else {
       await _fs.update(widget.initial!.fsId!, item);
     }

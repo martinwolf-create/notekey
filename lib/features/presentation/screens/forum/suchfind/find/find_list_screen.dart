@@ -90,9 +90,11 @@ class _FindListScreenState extends State<FindListScreen> {
             Expanded(
               child: StreamBuilder<List<ForumItem>>(
                 stream: _sf.watch(
+                  kind: MarketKind.find,
                   type: ForumItemType.market,
-                  sortBy: _sortBy,
-                  desc: _desc,
+                  // auskommentiert für Abgabe
+                  // sortBy: _sortBy,
+                  // desc: _desc,
                   query:
                       _search.text.trim().isEmpty ? null : _search.text.trim(),
                 ),
