@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:notekey_app/features/presentation/screens/forum/data/todo_db.dart';
+// import 'package:notekey_app/features/presentation/screens/forum/data/todo_db.dart'; // sqlite
 import 'package:notekey_app/features/presentation/screens/forum/data/todo_item.dart';
+import 'package:notekey_app/features/presentation/screens/forum/data/todo_fs.dart'; // firestore
 
 class TodoEditScreen extends StatefulWidget {
   final TodoItem? item;
@@ -16,7 +17,9 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
   final _noteCtrl = TextEditingController();
   DateTime? _due;
   bool _done = false;
-  final _db = TodoDb();
+
+  // final _db = TodoDb(); // sqlite
+  final _fs = TodoFs(); // firestore
 
   @override
   void initState() {
@@ -34,16 +37,14 @@ class _TodoEditScreenState extends State<TodoEditScreen> {
     final title = _titleCtrl.text.trim();
     final note = _noteCtrl.text.trim();
 
-    if (widget.item == null) {
-      await _db
-          .insert(TodoItem(title: title, note: note, due: _due, done: _done));
+    final base = TodoItem(title: title, note: note, due: _due, done: _done);
+
+    if (widget.item?.fsId == null) {
+      // await _db.insert(base); // sqlite
+      await _fs.add(base); // firestore
     } else {
-      await _db.update(widget.item!.copyWith(
-        title: title,
-        note: note,
-        due: _due,
-        done: _done,
-      ));
+      // await _db.update(widget.item!.copyWith(...)); // sqlite
+      await _fs.update(widget.item!.fsId!, base); // firestore
     }
     if (mounted) Navigator.pop(context, true);
   }
