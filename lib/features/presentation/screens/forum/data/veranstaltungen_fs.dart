@@ -11,10 +11,10 @@ class VeranstaltungenFs {
       'type': item.type.index, // int
       'title': item.title, // String
       'info': item.info, // String
-      'image_path': item.imagePath, // String?
-      'date_epoch': item.date?.millisecondsSinceEpoch, // int?
-      'price_cents': item.priceCents, // int?
-      'price_currency': item.currency, // String?
+      'image_path': item.imagePath, // String
+      'date_epoch': item.date?.millisecondsSinceEpoch, // int
+      'price_cents': item.priceCents, // int
+      'price_currency': item.currency, // String
       'createdAt': FieldValue.serverTimestamp()
     };
     final ref = await _db.collection(_col).add(data);
@@ -37,7 +37,9 @@ class VeranstaltungenFs {
   }) {
     Query<Map<String, dynamic>> q =
         _db.collection(_col).where('type', isEqualTo: type.index);
-    //AUSKOMMENTIERT für Abgabe
+
+    //AUSKOMMENTIERT (sortierung / index nötig in Firestore)
+
     //final orderField = sortBy == 'title'
     //  ? 'title'
     //  : sortBy == 'price'
@@ -62,7 +64,7 @@ class VeranstaltungenFs {
   ForumItem _fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data() ?? {};
     return ForumItem(
-      // ForumItem.id ist ein int? (für SQLite).
+      // ForumItem.id ist ein int (für SQLite).
       // Für Firestore: String-ID.
 
       id: null, // int bleibt ungenutzt bei Firestore
