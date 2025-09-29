@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 // Screens
-import 'package:notekey_app/features/presentation/screens/profil/profil_screen.dart';
+import 'package:notekey_app/features/presentation/screens/profil/profile_screen.dart';
 import 'package:notekey_app/features/presentation/screens/splash_theater/splash_theater_screen.dart';
 import 'package:notekey_app/features/presentation/screens/splash_theater/splash_theater2.dart';
 import 'package:notekey_app/features/presentation/screens/homescreen/home_screen.dart';
@@ -73,7 +73,7 @@ class AppRoutes {
       case home:
         return MaterialPageRoute(builder: (_) => HomeScreen());
       case profil:
-        return MaterialPageRoute(builder: (_) => ProfilScreen());
+        return MaterialPageRoute(builder: (_) => const ProfileScreen());
       case AppRoutes.settings:
         return MaterialPageRoute(builder: (_) => const SettingsScreen());
       case chat:

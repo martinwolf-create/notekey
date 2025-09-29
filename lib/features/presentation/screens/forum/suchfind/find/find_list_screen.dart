@@ -6,6 +6,7 @@ import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
 import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
 import 'package:notekey_app/features/presentation/screens/forum/data/suchfind_fs.dart';
 import 'package:notekey_app/features/presentation/screens/forum/suchfind/find/find_edit_screen.dart';
+import 'package:notekey_app/features/presentation/screens/forum/create_entry_page.dart';
 
 class FindListScreen extends StatefulWidget {
   const FindListScreen({super.key});

@@ -6,6 +6,7 @@ import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.
 import 'package:notekey_app/features/presentation/screens/forum/data/suchfind_db.dart';
 import 'package:notekey_app/features/presentation/screens/forum/data/suchfind_fs.dart';
 import 'package:notekey_app/helpers/image_helper.dart';
+import 'package:notekey_app/features/presentation/screens/forum/create_entry_page.dart';
 
 class SuchEditScreen extends StatefulWidget {
   final ForumItem? initial;

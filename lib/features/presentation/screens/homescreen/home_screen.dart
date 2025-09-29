@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:notekey_app/features/presentation/screens/profil/profil_screen.dart';
+import 'package:notekey_app/features/presentation/screens/profil/profile_screen.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
 import 'package:notekey_app/features/widgets/bottom_nav/bottom_navigation_bar.dart';

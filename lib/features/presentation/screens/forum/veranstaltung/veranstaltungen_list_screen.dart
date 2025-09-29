@@ -7,6 +7,7 @@ import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/ve
 import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltungen_list_screen.dart'
     show CreatePreset;
 import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltungen_fs.dart';
+import 'package:notekey_app/features/presentation/screens/forum/create_entry_page.dart';
 
 enum CreatePreset { camera, gallery, info, date }
 

@@ -5,7 +5,6 @@ import 'package:notekey_app/firebase_options.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/routes/app_routes.dart';
 
-// Repository-Pattern
 import 'package:notekey_app/features/auth/auth_repository.dart';
 import 'package:notekey_app/features/auth/firebase_auth_repository.dart';
 import 'package:notekey_app/features/auth/auth_gate.dart';
@@ -15,8 +14,6 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  debugPrint('FIREBASE PROJECT: ${Firebase.app().options.projectId}');
-
   final AuthRepository auth = FirebaseAuthRepository();
   runApp(MyApp(auth: auth));
 }

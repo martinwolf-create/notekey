@@ -1,13 +1,14 @@
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 abstract class AuthRepository {
   Stream<User?> authStateChanges();
 
   Future<void> signInWithEmailAndPassword(String email, String password);
   Future<void> signOut();
-  Future<void> sendPasswordReset(String email);
 
+  Future<void> sendPasswordReset(String email);
   Future<void> sendEmailVerification();
   Future<bool> reloadAndIsVerified();
 
@@ -22,5 +23,8 @@ abstract class AuthRepository {
     required String country,
     required String phone,
     File? photoFile,
+    int? age, // <<< wichtig
   });
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> streamMyUserDoc();
 }
