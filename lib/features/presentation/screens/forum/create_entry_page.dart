@@ -1,4 +1,3 @@
-// presentation/screens/forum/create_entry_page.dart
 import 'dart:async';
 import 'dart:io';
 
@@ -7,9 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
 
-// Nutzung: veranstaltung/suchfind/todo
-// - veranstaltung/suchfind erfordern verifizierte E-Mail
 class CreateEntryPage extends StatefulWidget {
   final String collection;
 
@@ -65,45 +63,47 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Nicht eingeloggt.');
 
-      // Email-Verifizierung aktualisieren & prüfen
+      // Firestore Rules, Email-Status sehen
       await user.reload();
+      await user.getIdToken(true);
+
       final verified =
           FirebaseAuth.instance.currentUser?.emailVerified ?? false;
       if (_needsVerifiedEmail && !verified) {
-        setState(() => _isLoading = false);
         _toast(
           'Bitte bestätige zuerst deine E-Mail-Adresse.\n'
-          'Öffne dein Postfach und tippe danach erneut auf „Speichern“.',
+          'Klicke im Postfach auf den Bestätigungslink und versuche es erneut.',
         );
         return;
       }
 
       final uid = user.uid;
 
-      // Optional: Bild hochladen (mit Timeout)
+      // Optional: Bild hochladen
       String? imageUrl;
       if (_imageFile != null) {
         final ref = FirebaseStorage.instance.ref().child(
-            '${widget.collection}/$uid/${DateTime.now().millisecondsSinceEpoch}.jpg');
-
+              '${widget.collection}/$uid/${DateTime.now().millisecondsSinceEpoch}.jpg',
+            );
         final uploadTask = ref.putFile(
           _imageFile!,
           SettableMetadata(contentType: 'image/jpeg'),
         );
-
-        // auf Abschluss warten + Timeout
         await uploadTask
             .whenComplete(() {})
             .timeout(const Duration(seconds: 25));
-
         imageUrl = await ref.getDownloadURL();
       }
 
-      // Firestore-Daten gemäß Regeln:
-      // - 'todo' erwartet 'userId'
-      // - veranstaltung/suchfind erwarten 'uid'
+      // Firestore-Daten vorbereiten
       final data = <String, dynamic>{
         if (widget.collection == 'todo') 'userId': uid else 'uid': uid,
+        if (widget.collection == 'veranstaltung')
+          'type': 0, // 0 = ForumItemType.event
+        if (widget.collection == 'suchfind')
+          'type': 1, // 1 = ForumItemType.suchfind
+        if (widget.collection == 'todo') 'type': 2, // 2 = ForumItemType.todo
+
         'title': _titleCtrl.text.trim(),
         'info': _infoCtrl.text.trim(),
         if (imageUrl != null) 'imageUrl': imageUrl,
@@ -116,22 +116,18 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
           .add(data)
           .timeout(const Duration(seconds: 20));
 
-      if (!mounted) return;
-      setState(() => _isLoading = false);
       _toast('Gespeichert ✔︎');
+      if (!mounted) return;
       Navigator.of(context).pop();
-    } on TimeoutException catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      _toast(e.message ?? 'Zeitüberschreitung');
+    } on TimeoutException {
+      _toast(
+          'Zeitüberschreitung – bitte Internet prüfen und erneut versuchen.');
     } on FirebaseException catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      _toast('Firebase-Fehler: ${e.code}');
+      _toast('Firebase-Fehler: ${e.code} — ${e.message ?? ''}');
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
       _toast('Fehler: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

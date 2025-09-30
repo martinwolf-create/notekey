@@ -62,7 +62,8 @@ class ForumItem {
       type: ForumItemType.values[m['type'] as int],
       title: m['title'] as String,
       info: m['info'] as String,
-      imagePath: m['image_path'] as String?,
+      imagePath: (m['imageUrl'] ?? m['image_path']) as String?,
+
       date: (m['date_epoch'] as int?) != null
           ? DateTime.fromMillisecondsSinceEpoch(m['date_epoch'] as int)
           : null,
@@ -83,20 +84,23 @@ class ForumItem {
         'price_currency': currency,
       };
 
-  /// ---- Firestore-Mapping ----
-
-  /// Firestore: Map (+ fsId) -> ForumItem
+  // Firestore: Map (+ fsId) -> ForumItem
   factory ForumItem.fromFirestore(
     Map<String, dynamic> m, {
     required String fsId,
   }) {
+    final imageUrl = (m['imageUrl'] as String?)?.trim();
+    final imagePathLegacy = (m['image_path'] as String?)?.trim();
+
     return ForumItem(
       id: null,
       fsId: fsId,
       type: ForumItemType.values[(m['type'] ?? 0) as int],
       title: (m['title'] ?? '') as String,
       info: (m['info'] ?? '') as String,
-      imagePath: m['image_path'] as String?,
+      imagePath: (imageUrl != null && imageUrl.isNotEmpty)
+          ? imageUrl
+          : imagePathLegacy,
       date: (m['date_epoch'] as int?) != null
           ? DateTime.fromMillisecondsSinceEpoch(m['date_epoch'] as int)
           : null,
@@ -105,7 +109,7 @@ class ForumItem {
     );
   }
 
-  /// Optional: ForumItem -> Firestore-Map (z. B. zum Schreiben)
+  // Optional: ForumItem Firestore-Map
   Map<String, dynamic> toFirestoreMap() => {
         'type': type.index,
         'title': title,

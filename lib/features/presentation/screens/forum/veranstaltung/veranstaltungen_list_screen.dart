@@ -35,7 +35,7 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => VeranstaltungenScreen(preset: preset),
+        builder: (_) => const CreateEntryPage(collection: 'veranstaltung'),
       ),
     );
     // Kein setState nötig: Stream aktualisiert automatisch
@@ -143,7 +143,7 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
             ),
             const SizedBox(height: 8),
 
-            // ---- Firestore-Live-Liste ----
+            // Liste der Veranstaltungen
             Expanded(
               child: StreamBuilder<List<ForumItem>>(
                 stream: _fs.watch(
@@ -186,8 +186,14 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (c, i) {
                       final it = items[i];
-                      final hasImage = it.imagePath != null &&
-                          File(it.imagePath!).existsSync();
+
+                      //Kann URL ODER lokaler Pfad sein
+                      final img =
+                          it.imagePath; // vom Mapper: imageUrl oder image_path
+                      final isUrl = img != null &&
+                          (img.startsWith('http://') ||
+                              img.startsWith('https://'));
+
                       // Dismissible zum Löschen
                       return Dismissible(
                         key: ValueKey(it.fsId ?? '${i}-${it.title}'),
@@ -210,24 +216,36 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: ListTile(
-                            leading: hasImage
+                            leading: (img != null && img.isNotEmpty)
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
-                                    child: Image.file(
-                                      File(it.imagePath!),
-                                      width: 56,
-                                      height: 56,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          const Icon(Icons.broken_image),
-                                    ),
+                                    child: isUrl
+                                        ? Image.network(
+                                            img,
+                                            width: 56,
+                                            height: 56,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) =>
+                                                const Icon(Icons.broken_image),
+                                          )
+                                        : Image.file(
+                                            File(img),
+                                            width: 56,
+                                            height: 56,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) =>
+                                                const Icon(Icons.broken_image),
+                                          ),
                                   )
                                 : const Icon(Icons.event_outlined),
                             title: Text(
-                                it.title.isEmpty ? 'Ohne Titel' : it.title),
+                              it.title.isEmpty ? 'Ohne Titel' : it.title,
+                            ),
                             subtitle: Text(
                               it.date != null
-                                  ? '${it.date!.day.toString().padLeft(2, '0')}.${it.date!.month.toString().padLeft(2, '0')}.${it.date!.year}  ·  ${it.info}'
+                                  ? '${it.date!.day.toString().padLeft(2, '0')}.'
+                                      '${it.date!.month.toString().padLeft(2, '0')}.'
+                                      '${it.date!.year}  ·  ${it.info}'
                                   : it.info,
                             ),
                           ),

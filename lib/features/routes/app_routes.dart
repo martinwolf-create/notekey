@@ -22,7 +22,7 @@ import 'package:notekey_app/features/presentation/screens/games/memory/memory_st
 import 'package:notekey_app/features/presentation/screens/games/memory/memory_game_screen.dart';
 
 // Verify-Screen mit Alias (robust gegen Namenskonflikte)
-import 'package:notekey_app/features/presentation/screens/auth/verify_email_screen.dart'
+import 'package:notekey_app/features/auth/verify_email_screen.dart'
     as verify_screen;
 
 // Repository bis in Auth-Screens
