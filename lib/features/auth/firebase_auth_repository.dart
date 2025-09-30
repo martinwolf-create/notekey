@@ -119,7 +119,7 @@ class FirebaseAuthRepository implements AuthRepository {
         await photoFile.copy(dst.path);
         localPhotoPath = dst.path;
       }
-
+      // profindaten als json
       final profileJson = {
         'uid': user.uid,
         'email': email.trim(),
@@ -143,7 +143,7 @@ class FirebaseAuthRepository implements AuthRepository {
       );
     } catch (_) {}
 
-    // 5) Verifizierungs-Mail (falls noch nicht versendet)
+    // Verifizierungs-Mail (falls noch nicht versendet)
     try {
       if (!user.emailVerified) {
         await user.sendEmailVerification();

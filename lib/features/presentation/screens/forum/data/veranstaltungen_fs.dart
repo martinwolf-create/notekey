@@ -45,7 +45,7 @@ class VeranstaltungenFs {
       'price_cents': item.priceCents,
       'price_currency': item.currency,
       'createdAt': FieldValue.serverTimestamp(),
-      // 'uid' fehlt -> Rules blocken!
+      // 'uid' fehlt Rules blocken!
     };
     final ref = await _db.collection(_col).add(data);
     final snap = await ref.get();
