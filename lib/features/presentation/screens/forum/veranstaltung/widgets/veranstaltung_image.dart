@@ -2,33 +2,30 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 class VeranstaltungImage extends StatelessWidget {
-  final String? imagePath;
-  final double height;
+  final String imagePath; // URL oder lokaler Pfad
 
-  const VeranstaltungImage({super.key, this.imagePath, this.height = 180});
+  const VeranstaltungImage({super.key, required this.imagePath});
 
   @override
   Widget build(BuildContext context) {
-    if (imagePath == null || imagePath!.isEmpty) return const SizedBox.shrink();
-
     final isUrl =
-        imagePath!.startsWith('http://') || imagePath!.startsWith('https://');
+        imagePath.startsWith('http://') || imagePath.startsWith('https://');
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: isUrl
           ? Image.network(
-              imagePath!,
-              fit: BoxFit.cover,
+              imagePath,
+              height: 180,
               width: double.infinity,
-              height: height,
+              fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
             )
           : Image.file(
-              File(imagePath!),
-              fit: BoxFit.cover,
+              File(imagePath),
+              height: 180,
               width: double.infinity,
-              height: height,
+              fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
             ),
     );

@@ -1,23 +1,22 @@
 enum ForumItemType { event, market }
 
 class ForumItem {
-  /// Lokale SQLite-ID (optional)
-  final int? id;
-
-  /// Firestore-Dokument-ID (optional)
-  final String? fsId;
+  final int? id; // lokal (SQLite)
+  final String? fsId; // Firestore-Dokument-ID
+  final String? ownerUid; // Ersteller-UID
 
   final ForumItemType type;
-  final String title; // kurzer Titel
-  final String info; // Beschreibung
-  final String? imagePath; // Dateipfad oder URL
-  final DateTime? date; // nur für Veranstaltungen
+  final String title;
+  final String info;
+  final String? imagePath; // Pfad oder URL
+  final DateTime? date;
   final int? priceCents;
-  final String? currency; // z. B. "EUR" (nur für Such & Find)
+  final String? currency;
 
   const ForumItem({
     this.id,
     this.fsId,
+    this.ownerUid,
     required this.type,
     required this.title,
     required this.info,
@@ -27,10 +26,10 @@ class ForumItem {
     this.currency,
   });
 
-  /// Kopie mit überschriebenen Feldern
   ForumItem copyWith({
     int? id,
     String? fsId,
+    String? ownerUid,
     ForumItemType? type,
     String? title,
     String? info,
@@ -42,6 +41,7 @@ class ForumItem {
     return ForumItem(
       id: id ?? this.id,
       fsId: fsId ?? this.fsId,
+      ownerUid: ownerUid ?? this.ownerUid,
       type: type ?? this.type,
       title: title ?? this.title,
       info: info ?? this.info,
@@ -52,18 +52,16 @@ class ForumItem {
     );
   }
 
-  /// ---- SQLite-Mapping ----
-
-  /// Für `sqflite`: Map -> ForumItem
+  // SQLite: Map zu Item (legacy kompatibel)
   factory ForumItem.fromSqlMap(Map<String, dynamic> m) {
     return ForumItem(
       id: m['id'] as int?,
-      fsId: null, // SQLite kennt keine Firestore-ID
+      fsId: null,
+      ownerUid: null,
       type: ForumItemType.values[m['type'] as int],
       title: m['title'] as String,
       info: m['info'] as String,
       imagePath: (m['imageUrl'] ?? m['image_path']) as String?,
-
       date: (m['date_epoch'] as int?) != null
           ? DateTime.fromMillisecondsSinceEpoch(m['date_epoch'] as int)
           : null,
@@ -72,7 +70,7 @@ class ForumItem {
     );
   }
 
-  /// Für `sqflite`: ForumItem -> Map
+  // SQLite: Item zu Map
   Map<String, dynamic> toSqlMap() => {
         'id': id,
         'type': type.index,
@@ -84,7 +82,7 @@ class ForumItem {
         'price_currency': currency,
       };
 
-  // Firestore: Map (+ fsId) -> ForumItem
+  // Firestore: Map (+ fsId) zu Item
   factory ForumItem.fromFirestore(
     Map<String, dynamic> m, {
     required String fsId,
@@ -95,6 +93,8 @@ class ForumItem {
     return ForumItem(
       id: null,
       fsId: fsId,
+      ownerUid:
+          (m['uid'] as String?)?.trim() ?? (m['ownerUid'] as String?)?.trim(),
       type: ForumItemType.values[(m['type'] ?? 0) as int],
       title: (m['title'] ?? '') as String,
       info: (m['info'] ?? '') as String,
@@ -109,7 +109,7 @@ class ForumItem {
     );
   }
 
-  // Optional: ForumItem Firestore-Map
+  // Firestore: Item -> Map
   Map<String, dynamic> toFirestoreMap() => {
         'type': type.index,
         'title': title,

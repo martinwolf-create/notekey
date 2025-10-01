@@ -8,6 +8,7 @@ import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/ve
     show CreatePreset;
 import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltungen_fs.dart';
 import 'package:notekey_app/features/presentation/screens/forum/create_entry_page.dart';
+import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltung_detail_screen.dart';
 
 enum CreatePreset { camera, gallery, info, date }
 
@@ -210,12 +211,26 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
                           }
                           // Stream aktualisiert automatisch
                         },
+                        // ontap zum detail_screen
                         child: Card(
                           color: AppColors.hellbeige,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: ListTile(
+                            onTap: () {
+                              final id = it.fsId;
+                              if (id == null) return; // Sicherheit
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => VeranstaltungDetailScreen(
+                                    fsId: id,
+                                    initial:
+                                        it, // sofortige Anzeige, bevor Stream kommt
+                                  ),
+                                ),
+                              );
+                            },
                             leading: (img != null && img.isNotEmpty)
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
@@ -239,8 +254,7 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
                                   )
                                 : const Icon(Icons.event_outlined),
                             title: Text(
-                              it.title.isEmpty ? 'Ohne Titel' : it.title,
-                            ),
+                                it.title.isEmpty ? 'Ohne Titel' : it.title),
                             subtitle: Text(
                               it.date != null
                                   ? '${it.date!.day.toString().padLeft(2, '0')}.'
@@ -248,6 +262,7 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
                                       '${it.date!.year}  ·  ${it.info}'
                                   : it.info,
                             ),
+                            trailing: const Icon(Icons.chevron_right),
                           ),
                         ),
                       );

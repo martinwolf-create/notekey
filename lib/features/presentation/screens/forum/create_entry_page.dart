@@ -33,7 +33,7 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
   }
 
   bool get _needsVerifiedEmail =>
-      widget.collection == 'veranstaltung' || widget.collection == 'suchfind';
+      widget.collection == "veranstaltung" || widget.collection == "suchfind";
 
   void _toast(String msg) {
     if (!mounted) return;
@@ -49,7 +49,7 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
       if (x == null) return;
       setState(() => _imageFile = File(x.path));
     } catch (e) {
-      _toast('Bildauswahl fehlgeschlagen: $e');
+      _toast("Bildauswahl fehlgeschlagen: $e");
     }
   }
 
@@ -61,7 +61,7 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('Nicht eingeloggt.');
+      if (user == null) throw Exception("Nicht eingeloggt.");
 
       // Firestore Rules, Email-Status sehen
       await user.reload();
@@ -71,8 +71,8 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
           FirebaseAuth.instance.currentUser?.emailVerified ?? false;
       if (_needsVerifiedEmail && !verified) {
         _toast(
-          'Bitte bestätige zuerst deine E-Mail-Adresse.\n'
-          'Klicke im Postfach auf den Bestätigungslink und versuche es erneut.',
+          "Bitte bestätige zuerst deine E-Mail-Adresse.\n"
+          "Klicke im Postfach auf den Bestätigungslink und versuche es erneut.",
         );
         return;
       }
@@ -83,11 +83,11 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
       String? imageUrl;
       if (_imageFile != null) {
         final ref = FirebaseStorage.instance.ref().child(
-              '${widget.collection}/$uid/${DateTime.now().millisecondsSinceEpoch}.jpg',
+              "${widget.collection}/$uid/${DateTime.now().millisecondsSinceEpoch}.jpg",
             );
         final uploadTask = ref.putFile(
           _imageFile!,
-          SettableMetadata(contentType: 'image/jpeg'),
+          SettableMetadata(contentType: "image/jpeg"),
         );
         await uploadTask
             .whenComplete(() {})
@@ -97,18 +97,18 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
 
       // Firestore-Daten vorbereiten
       final data = <String, dynamic>{
-        if (widget.collection == 'todo') 'userId': uid else 'uid': uid,
-        if (widget.collection == 'veranstaltung')
-          'type': 0, // 0 = ForumItemType.event
-        if (widget.collection == 'suchfind')
-          'type': 1, // 1 = ForumItemType.suchfind
-        if (widget.collection == 'todo') 'type': 2, // 2 = ForumItemType.todo
+        if (widget.collection == "todo") "userId": uid else "uid": uid,
+        if (widget.collection == "veranstaltung")
+          "type": 0, // 0 = ForumItemType.event
+        if (widget.collection == "suchfind")
+          "type": 1, // 1 = ForumItemType.suchfind
+        if (widget.collection == "todo") "type": 2, // 2 = ForumItemType.todo
 
-        'title': _titleCtrl.text.trim(),
-        'info': _infoCtrl.text.trim(),
-        if (imageUrl != null) 'imageUrl': imageUrl,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
+        "title": _titleCtrl.text.trim(),
+        "info": _infoCtrl.text.trim(),
+        if (imageUrl != null) "imageUrl": imageUrl,
+        "createdAt": FieldValue.serverTimestamp(),
+        "updatedAt": FieldValue.serverTimestamp(),
       };
 
       await FirebaseFirestore.instance
@@ -116,16 +116,16 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
           .add(data)
           .timeout(const Duration(seconds: 20));
 
-      _toast('Gespeichert ✔︎');
+      _toast("Gespeichert ✔︎");
       if (!mounted) return;
       Navigator.of(context).pop();
     } on TimeoutException {
       _toast(
-          'Zeitüberschreitung – bitte Internet prüfen und erneut versuchen.');
+          "Zeitüberschreitung – bitte Internet prüfen und erneut versuchen.");
     } on FirebaseException catch (e) {
-      _toast('Firebase-Fehler: ${e.code} — ${e.message ?? ''}');
+      _toast("Firebase-Fehler: ${e.code} — ${e.message ?? ''}");
     } catch (e) {
-      _toast('Fehler: $e');
+      _toast("Fehler: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -134,10 +134,10 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
   @override
   Widget build(BuildContext context) {
     final title = switch (widget.collection) {
-      'veranstaltung' => 'Veranstaltung erstellen',
-      'suchfind' => 'Such & Find – Eintrag',
-      'todo' => 'To-Do hinzufügen',
-      _ => 'Eintrag',
+      "veranstaltung" => "Veranstaltung erstellen",
+      "suchfind" => "Such & Find – Eintrag",
+      "todo" => "To-Do hinzufügen",
+      _ => "Eintrag",
     };
 
     return Scaffold(
@@ -162,7 +162,7 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
                     border: Border.all(color: Colors.brown.shade200),
                   ),
                   child: _imageFile == null
-                      ? const Text('Bild auswählen')
+                      ? const Text("Bild auswählen")
                       : ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: Image.file(
@@ -177,19 +177,19 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _titleCtrl,
-                decoration: const InputDecoration(labelText: 'Titel'),
+                decoration: const InputDecoration(labelText: "Titel"),
                 maxLength: 120,
                 validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Bitte Titel eingeben'
+                    ? "Bitte Titel eingeben"
                     : null,
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _infoCtrl,
-                decoration: const InputDecoration(labelText: 'Info'),
+                decoration: const InputDecoration(labelText: "Info"),
                 maxLines: 6,
                 validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Bitte Info eingeben'
+                    ? "Bitte Info eingeben"
                     : null,
               ),
               const SizedBox(height: 24),
@@ -208,14 +208,14 @@ class _CreateEntryPageState extends State<CreateEntryPage> {
                           height: 22,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Speichern'),
+                      : const Text("Speichern"),
                 ),
               ),
               if (_needsVerifiedEmail)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: Text(
-                    'Hinweis: Für ${widget.collection} ist eine verifizierte E-Mail erforderlich.',
+                    "Hinweis: Für ${widget.collection} ist eine verifizierte E-Mail erforderlich.",
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
