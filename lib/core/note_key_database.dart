@@ -1,20 +1,20 @@
 import 'package:notekey_app/core/repository/database_repository.dart';
 
 // Interfaces(funktion)
-import 'package:notekey_app/features/chat/domain/chat_repository.dart';
-import 'package:notekey_app/features/posts/domain/post_repository.dart';
-import 'package:notekey_app/features/events/domain/event_repository.dart';
-import 'package:notekey_app/features/calendar/data/calendar_repository.dart';
-import 'package:notekey_app/features/friends/domain/friend_repository.dart';
-import 'package:notekey_app/features/notifications/domain/notification_repository.dart';
+import 'package:notekey_app/features/ungenutzt/chat/domain/chat_repository.dart';
+import 'package:notekey_app/features/ungenutzt/posts/domain/post_repository.dart';
+import 'package:notekey_app/features/ungenutzt/events/domain/event_repository.dart';
+import 'package:notekey_app/features/ungenutzt/calendar/data/calendar_repository.dart';
+import 'package:notekey_app/features/ungenutzt/friends/domain/friend_repository.dart';
+import 'package:notekey_app/features/ungenutzt/notifications/domain/notification_repository.dart';
 
 // In-Memory...
-import 'package:notekey_app/features/chat/data/in_memory_chat_repository.dart';
-import 'package:notekey_app/features/posts/data/in_memory_post_repository.dart';
-import 'package:notekey_app/features/events/data/in_memory_event_repository.dart';
-import 'package:notekey_app/features/calendar/data/in_memory_calendar_repository.dart';
-import 'package:notekey_app/features/friends/data/in_memory_friend_repository.dart';
-import 'package:notekey_app/features/notifications/data/in_memory_notification_repository.dart';
+import 'package:notekey_app/features/ungenutzt/chat/data/in_memory_chat_repository.dart';
+import 'package:notekey_app/features/ungenutzt/posts/data/in_memory_post_repository.dart';
+import 'package:notekey_app/features/ungenutzt/events/data/in_memory_event_repository.dart';
+import 'package:notekey_app/features/ungenutzt/calendar/data/in_memory_calendar_repository.dart';
+import 'package:notekey_app/features/ungenutzt/friends/data/in_memory_friend_repository.dart';
+import 'package:notekey_app/features/ungenutzt/notifications/data/in_memory_notification_repository.dart';
 
 class InMemoryNoteKeyDatabase implements DatabaseRepository {
   InMemoryNoteKeyDatabase._();
