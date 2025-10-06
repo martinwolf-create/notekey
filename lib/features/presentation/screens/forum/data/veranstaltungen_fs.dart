@@ -1,7 +1,13 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:uuid/uuid.dart';
+
 import 'forum_item.dart';
 
-// int zu ForumItemType sicher
+// Int -> ForumItemType sicher mappen (falls 'type' fehlt, default event)
 ForumItemType _safeType(dynamic v) {
   final i = (v is int) ? v : 0;
   return (i >= 0 && i < ForumItemType.values.length)
@@ -11,70 +17,165 @@ ForumItemType _safeType(dynamic v) {
 
 class VeranstaltungenFs {
   final _db = FirebaseFirestore.instance;
+  final _storage = FirebaseStorage.instance;
   static const _col = 'veranstaltung';
 
-  // Create mit sauberem Schema
-  Future<ForumItem> addNetwork({
-    required ForumItem item,
+  /// Event anlegen, Bild mit UUID in Storage hochladen, URL + storagePath zurückschreiben.
+  Future<ForumItem> addWithUpload({
+    required ForumItem draft,
     required String uid,
-    String? imageUrl,
+    File? localImage,
   }) async {
-    final data = <String, dynamic>{
-      'uid': uid,
-      'type': item.type.index,
-      'title': item.title,
-      'info': item.info,
-      if (imageUrl != null && imageUrl.isNotEmpty) 'imageUrl': imageUrl,
-      'date_epoch': item.date?.millisecondsSinceEpoch,
-      if (item.priceCents != null) 'price_cents': item.priceCents,
-      if (item.currency != null) 'price_currency': item.currency,
+    // 1) Firestore-Dokument anlegen (muss exakt zu den Regeln passen!)
+    late final DocumentReference<Map<String, dynamic>> docRef;
+    try {
+      docRef = await _db.collection(_col).add({
+        'uid': uid,
+        'type': draft.type.index,
+        'title': draft.title,
+        'info': draft.info,
+        if (draft.date != null)
+          'date_epoch': draft.date!.millisecondsSinceEpoch,
+        if (draft.priceCents != null) 'price_cents': draft.priceCents,
+        if (draft.currency != null) 'price_currency': draft.currency,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw Exception(
+          'Firestore CREATE fehlgeschlagen (${e.code}): ${e.message}');
+    }
+
+    final eventId = docRef.id;
+    String? imageUrl;
+    String? storagePath;
+
+    // 2) Optional: Bild hochladen
+    if (localImage != null && await localImage.exists()) {
+      try {
+        final fileId = const Uuid().v4();
+        storagePath = 'events/$uid/$eventId/$fileId.jpg';
+
+        final ref = _storage.ref(storagePath);
+        final snap = await ref.putFile(
+          localImage,
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
+
+        if (snap.state != TaskState.success) {
+          throw FirebaseException(
+            plugin: 'firebase_storage',
+            code: 'upload-failed',
+            message: 'Upload state: ${snap.state}',
+          );
+        }
+        imageUrl = await ref.getDownloadURL();
+      } on FirebaseException catch (e) {
+        throw Exception(
+            'Storage UPLOAD fehlgeschlagen (${e.code}): ${e.message}');
+      }
+    }
+
+    // 3) URL & storagePath & updatedAt zurückschreiben
+    try {
+      await docRef.update({
+        if (imageUrl != null) 'imageUrl': imageUrl,
+        if (storagePath != null) 'storagePath': storagePath,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw Exception(
+          'Firestore UPDATE fehlgeschlagen (${e.code}): ${e.message}');
+    }
+
+    // 4) Zurücklesen
+    final snap = await docRef.get();
+    return _fromDoc(snap);
+  }
+
+  /// Event kopieren inkl. Bild (falls vorhanden).
+  Future<String> copyToNewOwner({
+    required String sourceId,
+    required String newUid,
+  }) async {
+    final src = await _db.collection(_col).doc(sourceId).get();
+    if (!src.exists) throw Exception('Quelle nicht gefunden (id=$sourceId)');
+
+    final m = src.data()!;
+    final String? srcImageUrl = (m['imageUrl'] as String?)?.trim();
+
+    final newRef = _db.collection(_col).doc();
+    final newId = newRef.id;
+
+    await newRef.set({
+      'uid': newUid,
+      'type': (m['type'] is int) ? m['type'] : 0,
+      'title': (m['title'] ?? '').toString(),
+      'info': (m['info'] ?? '').toString(),
+      if (m['date_epoch'] != null) 'date_epoch': m['date_epoch'],
+      if (m['price_cents'] != null) 'price_cents': m['price_cents'],
+      if (m['price_currency'] != null) 'price_currency': m['price_currency'],
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-    };
-    final ref = await _db.collection(_col).add(data);
-    final snap = await ref.get();
-    return _fromDoc(snap);
+    });
+
+    String? newImageUrl;
+    String? newStoragePath;
+
+    if (srcImageUrl != null && srcImageUrl.isNotEmpty) {
+      try {
+        final srcRef = _storage.refFromURL(srcImageUrl);
+        final data = await srcRef.getData(20 * 1024 * 1024); // <= 20MB
+        if (data != null) {
+          final fileId = const Uuid().v4();
+          newStoragePath = 'events/$newUid/$newId/$fileId.jpg';
+          final dstRef = _storage.ref(newStoragePath);
+          final snap = await dstRef.putData(
+            Uint8List.fromList(data), // <<< WICHTIG: Uint8List
+            SettableMetadata(contentType: 'image/jpeg'),
+          );
+          if (snap.state != TaskState.success) {
+            throw FirebaseException(
+              plugin: 'firebase_storage',
+              code: 'upload-failed',
+              message: 'Upload state: ${snap.state}',
+            );
+          }
+          newImageUrl = await dstRef.getDownloadURL();
+        }
+      } catch (_) {
+        // Bildkopie optional – Event existiert trotzdem
+      }
+    }
+
+    await newRef.update({
+      if (newImageUrl != null) 'imageUrl': newImageUrl,
+      if (newStoragePath != null) 'storagePath': newStoragePath,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    return newId;
   }
 
-  // ohne uid
-  @Deprecated('Nutze addNetwork() / CreateEntryPage.')
-  Future<ForumItem> add(ForumItem item) async {
-    final data = {
-      'type': item.type.index,
-      'title': item.title,
-      'info': item.info,
-      'image_path': item.imagePath,
-      'date_epoch': item.date?.millisecondsSinceEpoch,
-      'price_cents': item.priceCents,
-      'price_currency': item.currency,
-      'createdAt': FieldValue.serverTimestamp(),
-    };
-    final ref = await _db.collection(_col).add(data);
-    final snap = await ref.get();
-    return _fromDoc(snap);
-  }
-
-  // Löschen per Doc-ID
   Future<void> delete(String id) async {
     await _db.collection(_col).doc(id).delete();
   }
 
-  // Live-Liste nach Typ, sortiert per createdAt (neu zu alt)
+  // Serverseitiger Filter per type
   Stream<List<ForumItem>> watch({
     required ForumItemType type,
     String sortBy = 'date',
     bool desc = false,
     String? query,
   }) {
-    Query<Map<String, dynamic>> q =
-        _db.collection(_col).where('type', isEqualTo: type.index);
-
-    q = q.orderBy('createdAt', descending: true);
+    Query<Map<String, dynamic>> q = _db
+        .collection(_col)
+        .where('type', isEqualTo: type.index)
+        .orderBy('createdAt', descending: true);
 
     return q.snapshots().map((snap) {
       var list = snap.docs.map(_fromDoc).toList();
       final qq = query?.trim().toLowerCase();
-
       if (qq != null && qq.isNotEmpty) {
         list = list
             .where((e) =>
@@ -86,7 +187,6 @@ class VeranstaltungenFs {
     });
   }
 
-  // Live-Einzeldokument (Detail)
   Stream<ForumItem?> watchById(String id) {
     return _db.collection(_col).doc(id).snapshots().map((d) {
       if (!d.exists) return null;
@@ -94,27 +194,7 @@ class VeranstaltungenFs {
     });
   }
 
-  // Kopieren auf neuen Owner
-  Future<String> copyToNewOwner({
-    required String sourceId,
-    required String newUid,
-  }) async {
-    final src = await _db.collection(_col).doc(sourceId).get();
-    if (!src.exists) throw Exception('Quelle nicht gefunden');
-
-    final m = src.data()!;
-    final newData = {
-      ...m,
-      'uid': newUid,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-    newData.remove('image_path'); // lokalen Pfad nicht übernehmen
-    final ref = await _db.collection(_col).add(newData);
-    return ref.id;
-  }
-
-  // Firestore zu Model (imageUrl bevorzugt)
+  // Mapper: bevorzugt imageUrl; fallback: legacy image_path
   ForumItem _fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data() ?? const <String, dynamic>{};
     final imageUrl = (m['imageUrl'] as String?)?.trim();

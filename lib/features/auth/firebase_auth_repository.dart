@@ -1,13 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-
 import 'auth_repository.dart';
 
 class FirebaseAuthRepository implements AuthRepository {
@@ -56,6 +53,8 @@ class FirebaseAuthRepository implements AuthRepository {
     return _auth.currentUser?.emailVerified ?? false;
   }
 
+  // SignUp mit Profilbild & Firestore
+
   @override
   Future<User?> signUpWithProfile({
     required String email,
@@ -70,7 +69,7 @@ class FirebaseAuthRepository implements AuthRepository {
     File? photoFile,
     int? age,
   }) async {
-    //  Auth
+    // 1) Benutzer in Firebase Auth anlegen
     final cred = await _auth.createUserWithEmailAndPassword(
       email: email.trim(),
       password: password,
@@ -78,15 +77,33 @@ class FirebaseAuthRepository implements AuthRepository {
     final user = cred.user!;
     await user.updateDisplayName(username);
 
-    // optional: Foto
+    // Profilbild-Upload mit Statusprüfung
     String profileImageUrl = '';
     if (photoFile != null && await photoFile.exists()) {
-      final ref = _storage.ref().child('users/${user.uid}/profile.jpg');
-      await ref.putFile(photoFile);
-      profileImageUrl = await ref.getDownloadURL();
+      final ref = _storage.ref('users/${user.uid}/profile.jpg');
+
+      // >>> FIX: Token sicherstellen (vermeidet [unauthorized] unmittelbar nach Signup)
+      await _auth.currentUser?.reload();
+      await _auth.currentUser?.getIdToken(true);
+
+      final uploadTask = await ref.putFile(
+        photoFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      if (uploadTask.state == TaskState.success) {
+        profileImageUrl = await ref.getDownloadURL();
+        await user.updatePhotoURL(profileImageUrl);
+      } else {
+        throw FirebaseException(
+          plugin: 'firebase_storage',
+          message: 'Upload fehlgeschlagen (state=${uploadTask.state})',
+          code: 'upload-failed',
+        );
+      }
     }
 
-    // Firestore: users/{uid}
+    //  Firestore-Dokument erstellen oder aktualisieren
     final now = FieldValue.serverTimestamp();
     await _db.collection('users').doc(user.uid).set({
       'uid': user.uid,
@@ -99,13 +116,13 @@ class FirebaseAuthRepository implements AuthRepository {
       'country': country.trim(),
       'phone': phone.trim(),
       'profileImageUrl': profileImageUrl,
-      'age': age, // wird angezeigt, wenn vorhanden
+      'age': age,
       'emailVerified': user.emailVerified,
       'createdAt': now,
       'updatedAt': now,
     }, SetOptions(merge: true));
 
-    // optional:
+    //  Lokale JSON-Sicherung (optional)
     try {
       final docsDir = await getApplicationDocumentsDirectory();
       final profileDir = Directory(p.join(docsDir.path, 'profiles'));
@@ -119,7 +136,7 @@ class FirebaseAuthRepository implements AuthRepository {
         await photoFile.copy(dst.path);
         localPhotoPath = dst.path;
       }
-      // profindaten als json
+
       final profileJson = {
         'uid': user.uid,
         'email': email.trim(),
@@ -141,17 +158,23 @@ class FirebaseAuthRepository implements AuthRepository {
       await profileFile.writeAsString(
         const JsonEncoder.withIndent('  ').convert(profileJson),
       );
-    } catch (_) {}
+    } catch (_) {
+      // Fehler beim lokalen Speichern ignorieren
+    }
 
-    // Verifizierungs-Mail (falls noch nicht versendet)
+    //  Verifizierungs-Mail senden
     try {
       if (!user.emailVerified) {
         await user.sendEmailVerification();
       }
-    } catch (_) {}
+    } catch (_) {
+      // Falls Versand fehlschlägt: kein Absturz
+    }
 
     return user;
   }
+
+  // Live-Stream für eingeloggten Benutzer
 
   @override
   Stream<DocumentSnapshot<Map<String, dynamic>>> streamMyUserDoc() {

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
 import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
@@ -88,10 +89,11 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
         content: Row(
           children: const [
             SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2)),
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                  color: Colors.white, strokeWidth: 2),
+            ),
             SizedBox(width: 12),
             Text('Speichern…'),
           ],
@@ -99,20 +101,36 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
       ),
     );
 
-    final draft = ForumItem(
-      type: ForumItemType.event,
-      title: _titleController.text.trim().isEmpty
-          ? 'Ohne Titel'
-          : _titleController.text.trim(),
-      info: _infoController.text.trim(),
-      imagePath: _imagePath,
-      date: _date,
-    );
+    try {
+      final draft = ForumItem(
+        type: ForumItemType.event,
+        title: _titleController.text.trim().isEmpty
+            ? 'Ohne Titel'
+            : _titleController.text.trim(),
+        info: _infoController.text.trim(),
+        imagePath: _imagePath, // lokale Vorschau vor Upload
+        date: _date,
+      );
 
-    final saved = await VeranstaltungenFs().add(draft);
+      final uid = FirebaseAuth.instance.currentUser!.uid;
+      final file = (_imagePath != null) ? File(_imagePath!) : null;
 
-    if (!mounted) return;
-    Navigator.pop(context, saved);
+      final saved = await VeranstaltungenFs().addWithUpload(
+        draft: draft,
+        uid: uid,
+        localImage: file,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context, saved);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -215,7 +233,9 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
                     )
                   : const Text('Speichern'),
             ),

@@ -8,7 +8,7 @@ import 'package:notekey_app/features/presentation/screens/homescreen/home_screen
 import 'package:notekey_app/features/presentation/screens/startscreen/startscreen.dart';
 import 'package:notekey_app/features/presentation/screens/signup/signup_screen.dart';
 import 'package:notekey_app/features/presentation/screens/signin/signin_screen.dart';
-import 'package:notekey_app/features/ungenutzt/chat/chat_home_screen.dart';
+import 'package:notekey_app/core/detail_repo/chat/chat_home_screen.dart';
 import 'package:notekey_app/features/presentation/screens/settings/settings_screen.dart';
 import 'package:notekey_app/features/presentation/screens/forum/forum_home_screen.dart';
 import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltungen_list_screen.dart'
