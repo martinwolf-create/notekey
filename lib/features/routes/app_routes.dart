@@ -11,9 +11,9 @@ import 'package:notekey_app/features/presentation/screens/signin/signin_screen.d
 import 'package:notekey_app/core/detail_repo/chat/chat_home_screen.dart';
 import 'package:notekey_app/features/presentation/screens/settings/settings_screen.dart';
 import 'package:notekey_app/features/presentation/screens/forum/forum_home_screen.dart';
-import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltungen_list_screen.dart'
+import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltung_list_screen.dart'
     as veranstaltungen_list;
-import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltungen_edit_screen.dart';
+import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltung_edit_screen.dart';
 import 'package:notekey_app/features/presentation/screens/forum/todo/todo_screen.dart';
 import 'package:notekey_app/features/presentation/screens/forum/suchfind/suchfind_home_screen.dart';
 import 'package:notekey_app/features/presentation/screens/forum/suchfind/such/such_list_screen.dart';

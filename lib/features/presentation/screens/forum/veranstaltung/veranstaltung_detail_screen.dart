@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
-import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltungen_fs.dart';
+import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltung_fs.dart';
 
 import 'widgets/veranstaltung_image.dart';
 import 'widgets/veranstaltung_actions.dart';
 
 class VeranstaltungDetailScreen extends StatelessWidget {
-  final String fsId;        // Dokument-ID aus Firestore
+  final String fsId; // Dokument-ID aus Firestore
   final ForumItem? initial; // optional: schon geladener Datensatz
 
   const VeranstaltungDetailScreen({

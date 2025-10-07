@@ -1,19 +1,21 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltung_edit_screen.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
 import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
-import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltungen_edit_screen.dart';
-import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltungen_list_screen.dart'
-    show CreatePreset;
-import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltungen_fs.dart';
+//import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltung_edit_screen.dart';
+//import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltung_list_screen.dart'
+//show CreatePreset;
+import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltung_fs.dart';
 import 'package:notekey_app/features/presentation/screens/forum/create_entry_page.dart';
 import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltung_detail_screen.dart';
 
 enum CreatePreset { camera, gallery, info, date }
 
 class VeranstaltungenListScreen extends StatefulWidget {
-  const VeranstaltungenListScreen({super.key});
+  final String? collection;
+  const VeranstaltungenListScreen({super.key, this.collection});
 
   @override
   State<VeranstaltungenListScreen> createState() =>
@@ -35,9 +37,7 @@ class _VeranstaltungenListScreenState extends State<VeranstaltungenListScreen> {
   Future<void> _openCreate({CreatePreset? preset}) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const CreateEntryPage(collection: 'veranstaltung'),
-      ),
+      MaterialPageRoute(builder: (_) => const VeranstaltungenScreen()),
     );
     // Kein setState nötig: Stream aktualisiert automatisch
   }

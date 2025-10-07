@@ -5,10 +5,10 @@ import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
 import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
 import 'package:notekey_app/helpers/image_helper.dart';
-import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltungen_list_screen.dart'
+import 'package:notekey_app/features/presentation/screens/forum/veranstaltung/veranstaltung_list_screen.dart'
     show CreatePreset;
-import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltungen_fs.dart';
-import 'package:notekey_app/features/presentation/screens/forum/create_entry_page.dart';
+import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltung_fs.dart';
+//import 'package:notekey_app/features/presentation/screens/forum/create_entry_page.dart';
 
 class VeranstaltungenScreen extends StatefulWidget {
   final CreatePreset? preset;
@@ -83,16 +83,18 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
     setState(() => _isSaving = true);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        duration: const Duration(seconds: 3),
+      const SnackBar(
+        duration: Duration(seconds: 3),
         backgroundColor: AppColors.dunkelbraun,
         content: Row(
-          children: const [
+          children: [
             SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
-                  color: Colors.white, strokeWidth: 2),
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
             ),
             SizedBox(width: 12),
             Text('Speichern…'),
@@ -101,36 +103,37 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
       ),
     );
 
-    try {
-      final draft = ForumItem(
-        type: ForumItemType.event,
-        title: _titleController.text.trim().isEmpty
-            ? 'Ohne Titel'
-            : _titleController.text.trim(),
-        info: _infoController.text.trim(),
-        imagePath: _imagePath, // lokale Vorschau vor Upload
-        date: _date,
-      );
+    //try {
+    final draft = ForumItem(
+      type: ForumItemType.event,
+      title: _titleController.text.trim().isEmpty
+          ? 'Ohne Titel'
+          : _titleController.text.trim(),
+      info: _infoController.text.trim(),
+      imagePath: null,
+      date: _date,
+    );
 
-      final uid = FirebaseAuth.instance.currentUser!.uid;
-      final file = (_imagePath != null) ? File(_imagePath!) : null;
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final file = (_imagePath != null) ? File(_imagePath!) : null;
+    print(_imagePath);
+    // Hier ist die Zeile, die jetzt wirklich passt!
+    final saved = await VeranstaltungenFs().addWithUpload(
+      draft: draft,
+      ownerUid: uid, //  das ist der korrekte Parametername
+      localImage: file,
+    );
 
-      final saved = await VeranstaltungenFs().addWithUpload(
-        draft: draft,
-        uid: uid,
-        localImage: file,
-      );
-
-      if (!mounted) return;
-      Navigator.pop(context, saved);
-    } catch (e) {
+    if (!mounted) return;
+    Navigator.pop(context, saved);
+    /*} catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Fehler: $e')),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
-    }
+    }*/
   }
 
   @override

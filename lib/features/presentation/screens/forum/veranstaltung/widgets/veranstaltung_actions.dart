@@ -1,9 +1,8 @@
 // lib/features/presentation/screens/forum/veranstaltung/widgets/veranstaltung_actions.dart
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltungen_fs.dart';
+import 'package:notekey_app/features/presentation/screens/forum/data/veranstaltung_fs.dart';
 
 class VeranstaltungActions extends StatelessWidget {
   final String fsId;
@@ -25,7 +24,7 @@ class VeranstaltungActions extends StatelessWidget {
 
     return Row(
       children: [
-        // Teilen immer erlaubt
+        // Teilen (Platzhalter)
         IconButton(
           icon: const Icon(Icons.share),
           onPressed: () => _toast(context, 'Teilen folgt …'),
@@ -41,8 +40,10 @@ class VeranstaltungActions extends StatelessWidget {
               return;
             }
             try {
-              final newId =
-                  await fs.copyToNewOwner(sourceId: fsId, newUid: uid);
+              final newId = await fs.copyToNewOwner(
+                sourceId: fsId,
+                newUid: uid, // <-- WICHTIG: Parametername heißt newUid
+              );
               _toast(context, 'Kopiert ✔ ($newId)');
             } catch (e) {
               _toast(context, 'Fehler: $e');
@@ -50,7 +51,7 @@ class VeranstaltungActions extends StatelessWidget {
           },
         ),
 
-        // Löschen nur für Owner
+        // Löschen nur für Besitzer
         if (isOwner)
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.redAccent),
@@ -62,11 +63,13 @@ class VeranstaltungActions extends StatelessWidget {
                   content: const Text('Diese Veranstaltung wirklich löschen?'),
                   actions: [
                     TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Abbrechen')),
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Abbrechen'),
+                    ),
                     TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Löschen')),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Löschen'),
+                    ),
                   ],
                 ),
               );
