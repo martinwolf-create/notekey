@@ -14,6 +14,7 @@ class SuchListScreen extends StatefulWidget {
   State<SuchListScreen> createState() => _SuchListScreenState();
 }
 
+// Such-Liste mit Such-Funktion, Sortierung und Eintrag-Erstellung
 class _SuchListScreenState extends State<SuchListScreen> {
   final _fs = SuchFindFs();
   final _search = TextEditingController();
