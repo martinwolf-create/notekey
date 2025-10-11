@@ -24,7 +24,7 @@ class VeranstaltungenFs {
   /// Storage-Pfad: events/{ownerUid}/{eventId}/{uuid}.jpg
   Future<ForumItem> addWithUpload({
     required ForumItem draft,
-    required String ownerUid, // <— fester Name, bitte so aufrufen
+    required String ownerUid,
     File? localImage,
   }) async {
     // 1) Firestore-Dokument anlegen (passt zu deinen Regeln)

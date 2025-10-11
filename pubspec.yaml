@@ -27,6 +27,7 @@ dependencies:
   sqflite: ^2.3.3
   webview_flutter: ^4.4.2
   uuid: ^4.2.2
+  provider: ^6.1.5+1
 
 dev_dependencies:
   flutter_test:
