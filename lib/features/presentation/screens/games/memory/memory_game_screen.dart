@@ -1,8 +1,12 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:notekey_app/features/themes/colors.dart'; // AppColors
+import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/presentation/screens/games/memory/widgets/memory_card.dart';
+
+// NEU: Firestore + Auth
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MemoryGameScreen extends StatefulWidget {
   final bool vsComputer;
@@ -35,7 +39,6 @@ class _MemoryGameScreenState extends State<MemoryGameScreen> {
   bool lock = false;
   bool player1Turn = true;
 
-  // Musik-/Noten-Symbole
   final List<String> _symbols = const ["♩", "♪", "♫", "♬", "♭", "♮", "♯", "𝄞"];
 
   @override
@@ -46,7 +49,7 @@ class _MemoryGameScreenState extends State<MemoryGameScreen> {
 
   void _newGame() {
     final base = List<String>.from(_symbols)..shuffle(_rng);
-    final pick = base.take(8).toList(); // 4x4 = 8 Paare
+    final pick = base.take(8).toList();
     final list = [...pick, ...pick]..shuffle(_rng);
     deck = list.map((e) => _Tile(e)).toList();
 
@@ -76,7 +79,6 @@ class _MemoryGameScreenState extends State<MemoryGameScreen> {
     moves += 1;
 
     if (prev.symbol == t.symbol) {
-      // Match
       await Future.delayed(const Duration(milliseconds: 260));
       setState(() {
         prev.matched = true;
@@ -90,10 +92,11 @@ class _MemoryGameScreenState extends State<MemoryGameScreen> {
       if (deck.every((e) => e.matched)) {
         await Future.delayed(const Duration(milliseconds: 320));
         if (!mounted) return;
+        // NEU: Score speichern bevor Dialog kommt
+        await _saveScore();
         _showWinDialog();
       }
     } else {
-      // Miss
       await Future.delayed(const Duration(milliseconds: 560));
       setState(() {
         prev.open = false;
@@ -105,7 +108,6 @@ class _MemoryGameScreenState extends State<MemoryGameScreen> {
       lock = false;
       firstIndex = null;
 
-      // sehr simpler Computerzug
       if (widget.vsComputer && !player1Turn) {
         await Future.delayed(const Duration(milliseconds: 380));
         await _computerMove();
@@ -126,8 +128,33 @@ class _MemoryGameScreenState extends State<MemoryGameScreen> {
     await _tapCard(closed[1]);
   }
 
+  // -------------------------
+  // NEU: Score -> Firestore
+  // Sammlung: memory_scores
+  // Felder: uid, name, mode, moves, score, finishedAt
+  Future<void> _saveScore() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
+      final doc = {
+        'uid': uid,
+        'name': widget.player1Name,
+        'mode': widget.vsComputer ? 'vs_computer' : 'local',
+        'moves': moves,
+        'score': score,
+        'finishedAt': FieldValue.serverTimestamp(),
+      };
+      await FirebaseFirestore.instance.collection('memory_scores').add(doc);
+    } catch (e) {
+      // still silent, nur kleines Feedback
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Score konnte nicht gespeichert werden: $e')),
+      );
+    }
+  }
+  // -------------------------
+
   void _showWinDialog() {
-    final c = AppColors;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -135,9 +162,13 @@ class _MemoryGameScreenState extends State<MemoryGameScreen> {
         backgroundColor: AppColors.hellbeige,
         title: Text("🎉 Geschafft!",
             style: TextStyle(color: AppColors.dunkelbraun)),
-        content: Text("Züge: $moves\nScore: $score",
-            style: TextStyle(
-                color: AppColors.dunkelbraun.withOpacity(.85), fontSize: 16)),
+        content: Text(
+          "Züge: $moves\nScore: $score",
+          style: TextStyle(
+            color: AppColors.dunkelbraun.withOpacity(.85),
+            fontSize: 16,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () {
@@ -159,21 +190,16 @@ class _MemoryGameScreenState extends State<MemoryGameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColors;
-
     return Scaffold(
       backgroundColor: AppColors.hellbeige,
       appBar: AppBar(
-        backgroundColor: AppColors.dunkelbraun, // Appbar dunkelbraun
+        backgroundColor: AppColors.dunkelbraun,
         centerTitle: true,
-        iconTheme: const IconThemeData(
-          
-          color: AppColors.hellbeige, // rechts oben Pfeil
-        ),
+        iconTheme: const IconThemeData(color: AppColors.hellbeige),
         title: const Text(
           "NOTEkey Memory",
           style: TextStyle(
-            color: AppColors.hellbeige, // Titel hellbeige
+            color: AppColors.hellbeige,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -181,9 +207,8 @@ class _MemoryGameScreenState extends State<MemoryGameScreen> {
           IconButton(
             tooltip: "Neu mischen",
             onPressed: _newGame,
-            color: AppColors.hellbeige, // appbar links: Icon(Icons.arrow_back)
-            icon:
-                const Icon(Icons.refresh_rounded), // appbar links: Icon(Icons.arrow_back)
+            color: AppColors.hellbeige,
+            icon: const Icon(Icons.refresh_rounded),
           ),
         ],
       ),
@@ -256,10 +281,9 @@ class _ScoreBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColors;
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           colors: [AppColors.rosebeige, AppColors.hellbeige],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -276,7 +300,7 @@ class _ScoreBar extends StatelessWidget {
           Expanded(
             child: Text(
               player1Turn ? "$player1 • am Zug" : player1,
-              style: TextStyle(
+              style: const TextStyle(
                   color: AppColors.dunkelbraun, fontWeight: FontWeight.w800),
               overflow: TextOverflow.ellipsis,
             ),
@@ -290,7 +314,7 @@ class _ScoreBar extends StatelessWidget {
             child: Text(
               player1Turn ? player2 : "$player2 • am Zug",
               textAlign: TextAlign.right,
-              style: TextStyle(
+              style: const TextStyle(
                   color: AppColors.dunkelbraun, fontWeight: FontWeight.w800),
               overflow: TextOverflow.ellipsis,
             ),
