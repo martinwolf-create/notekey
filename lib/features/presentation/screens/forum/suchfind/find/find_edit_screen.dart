@@ -1,16 +1,18 @@
+// lib/features/presentation/screens/forum/suchfind/find/find_edit_screen.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
-import 'package:notekey_app/features/presentation/screens/forum/create_entry_page.dart';
-import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
-import 'package:notekey_app/features/presentation/screens/forum/data/suchfind_fs.dart';
-import 'package:notekey_app/helpers/image_helper.dart';
 
-const _currencies = ['EUR', 'USD', 'GBP', 'JPY', 'CHF'];
+import 'package:notekey_app/features/presentation/screens/forum/suchfind/data/suchfind_model.dart';
+import 'package:notekey_app/features/presentation/screens/forum/suchfind/provider/suchfind_provider.dart';
+import 'package:notekey_app/helpers/image_helper.dart'; // pickAndPersistImage
 
 class FindEditScreen extends StatefulWidget {
-  final ForumItem? initial;
+  final Suchfind? initial;
   const FindEditScreen({super.key, this.initial});
 
   @override
@@ -18,15 +20,11 @@ class FindEditScreen extends StatefulWidget {
 }
 
 class _FindEditScreenState extends State<FindEditScreen> {
-  final _sf = SuchFindFs();
-
-  final _titleCtl = TextEditingController();
-  final _infoCtl = TextEditingController();
-  final _priceCtl = TextEditingController();
+  final _title = TextEditingController();
+  final _info = TextEditingController();
   final _infoNode = FocusNode();
 
-  String _currency = 'EUR';
-  String? _imagePath;
+  String? _imagePath; // lokaler Pfad ODER bereits gespeicherte URL
   bool _saving = false;
 
   @override
@@ -34,27 +32,23 @@ class _FindEditScreenState extends State<FindEditScreen> {
     super.initState();
     final it = widget.initial;
     if (it != null) {
-      _titleCtl.text = it.title;
-      _infoCtl.text = it.info;
-      _imagePath = it.imagePath;
-      _priceCtl.text = it.priceCents != null
-          ? (it.priceCents! / 100).toStringAsFixed(2)
-          : '';
-      _currency = it.currency ?? 'EUR';
+      _title.text = it.title;
+      _info.text = it.description ?? '';
+      _imagePath = it.imageUrl; // kann http-URL sein
     }
   }
 
   @override
   void dispose() {
-    _titleCtl.dispose();
-    _infoCtl.dispose();
-    _priceCtl.dispose();
+    _title.dispose();
+    _info.dispose();
     _infoNode.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage({required bool fromCamera}) async {
     final p = await pickAndPersistImage(fromCamera: fromCamera);
+    if (!mounted) return;
     if (p != null) setState(() => _imagePath = p);
   }
 
@@ -62,51 +56,96 @@ class _FindEditScreenState extends State<FindEditScreen> {
     if (_saving) return;
     setState(() => _saving = true);
 
-    int? cents;
-    final t = _priceCtl.text.trim().replaceAll(',', '.');
-    if (t.isNotEmpty) {
-      final v = double.tryParse(t);
-      if (v != null) cents = (v * 100).round();
+    // kleines Feedback
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 2),
+          backgroundColor: AppColors.dunkelbraun,
+          content: Row(
+            children: [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              ),
+              SizedBox(width: 10),
+              Text('Wird gespeichert...'),
+            ],
+          ),
+        ),
+      );
     }
 
-    final base = ForumItem(
-      fsId: widget.initial?.fsId,
-      type: ForumItemType.market,
-      title:
-          _titleCtl.text.trim().isEmpty ? 'Ohne Titel' : _titleCtl.text.trim(),
-      info: _infoCtl.text.trim(),
-      imagePath: _imagePath,
-      date: null,
-      priceCents: cents,
-      currency: _currency,
-    );
+    try {
+      final prov = context.read<SuchfindProvider>();
 
-    if (widget.initial?.fsId == null) {
-      await _sf.add(base, kind: MarketKind.find); //NEU: kind mitgeben
-    } else {
-      await _sf.update(widget.initial!.fsId!, base);
+      // 1) optional Bild hochladen (nur wenn lokaler Pfad, nicht bei http-URL)
+      String? imageUrl = widget.initial?.imageUrl;
+      if (_imagePath != null &&
+          _imagePath!.isNotEmpty &&
+          !_imagePath!.startsWith('http')) {
+        imageUrl = await prov.uploadImage(
+          File(_imagePath!),
+          kind: MarketKind.find, // Provider kann das ignorieren oder nutzen
+        );
+      }
+
+      // 2) Datensatz für Firestore
+      final s = Suchfind(
+        id: widget.initial?.id, // null = create
+        title: _title.text.trim().isEmpty ? 'Ohne Titel' : _title.text.trim(),
+        description: _info.text.trim().isEmpty ? null : _info.text.trim(),
+        imageUrl: imageUrl,
+        createdAt: widget.initial?.createdAt, // bleibt bei Update erhalten
+      );
+
+      // 3) speichern (create vs update)
+      if (widget.initial?.id == null) {
+        await prov.add(s, kind: MarketKind.find);
+      } else {
+        await prov.update(s);
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Fehler: $e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-
-    if (!mounted) return;
-    Navigator.pop(context, true);
   }
 
   @override
   Widget build(BuildContext context) {
     final img = _imagePath;
+
     return Scaffold(
       backgroundColor: AppColors.hellbeige,
       appBar: const BasicTopBar(
-        title: 'Angebot/Gesuch',
+        title: 'Finde – Eintrag',
         showBack: true,
         showMenu: false,
+      ),
+      floatingActionButton: GestureDetector(
+        onLongPress: () => _pickImage(fromCamera: true),
+        child: FloatingActionButton(
+          backgroundColor: AppColors.dunkelbraun,
+          foregroundColor: AppColors.hellbeige,
+          onPressed: () => _pickImage(fromCamera: false),
+          child: const Icon(Icons.add_a_photo_outlined),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 12),
             GestureDetector(
               onTap: () => _pickImage(fromCamera: false),
               onLongPress: () => _pickImage(fromCamera: true),
@@ -118,32 +157,32 @@ class _FindEditScreenState extends State<FindEditScreen> {
                   border: Border.all(color: AppColors.goldbraun),
                 ),
                 child: img == null
-                    ? const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.add_a_photo_outlined, size: 32),
-                            SizedBox(height: 8),
-                            Text('Tippen: Galerie  ·  Long-Press: Kamera'),
-                          ],
-                        ),
-                      )
+                    ? const Center(child: Text('Bild auswählen'))
                     : ClipRRect(
                         borderRadius: BorderRadius.circular(16),
-                        child: Image.file(
-                          File(img),
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                          errorBuilder: (_, __, ___) =>
-                              const Icon(Icons.broken_image),
-                        ),
+                        child: img.startsWith('http')
+                            ? Image.network(
+                                img,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                height: double.infinity,
+                                errorBuilder: (_, __, ___) =>
+                                    const Icon(Icons.broken_image),
+                              )
+                            : Image.file(
+                                File(img),
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                height: double.infinity,
+                                errorBuilder: (_, __, ___) =>
+                                    const Icon(Icons.broken_image),
+                              ),
                       ),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: _titleCtl,
+              controller: _title,
               decoration: const InputDecoration(
                 labelText: 'Titel',
                 border: OutlineInputBorder(),
@@ -151,38 +190,13 @@ class _FindEditScreenState extends State<FindEditScreen> {
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: _infoCtl,
+              controller: _info,
               focusNode: _infoNode,
               maxLines: 5,
               decoration: const InputDecoration(
-                labelText: 'Beschreibung',
+                labelText: 'Info',
                 border: OutlineInputBorder(),
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _priceCtl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Preis',
-                      hintText: 'z. B. 49.90',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                DropdownButton<String>(
-                  value: _currency,
-                  items: _currencies
-                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _currency = v ?? 'EUR'),
-                ),
-              ],
             ),
             const SizedBox(height: 24),
             ElevatedButton(
@@ -199,7 +213,9 @@ class _FindEditScreenState extends State<FindEditScreen> {
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
                     )
                   : const Text('Speichern'),
             ),

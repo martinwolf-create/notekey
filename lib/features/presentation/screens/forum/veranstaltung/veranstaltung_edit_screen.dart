@@ -79,42 +79,44 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
   }
 
   Future<void> _save(BuildContext context) async {
-    if (_isSaving) return;
-    setState(() => _isSaving = true);
-
     final p = context.read<VeranstaltungProvider>();
+    if (p.saving) return;
+
+    setState(() {}); // UI refresh (Button disabled über p.saving)
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        duration: Duration(seconds: 2),
+        duration: Duration(seconds: 3),
         backgroundColor: AppColors.dunkelbraun,
         content: Row(
           children: [
             SizedBox(
-              width: 18,
-              height: 18,
+              width: 20,
+              height: 20,
               child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
-              ),
+                  color: Colors.white, strokeWidth: 2),
             ),
-            SizedBox(width: 10),
-            Text('Wird gespeichert...'),
+            SizedBox(width: 12),
+            Text('Speichern…'),
           ],
         ),
       ),
     );
 
+    String? imageUrl;
+
     try {
-      // 1️⃣ optional Bild hochladen
-      String? imageUrl;
+      // --- Bild optional hochladen (Pfad sauber normalisieren) ---
       if (_imagePath != null && _imagePath!.isNotEmpty) {
-        imageUrl = await p.uploadImage(File(_imagePath!));
+        final String raw = _imagePath!;
+        final File file =
+            raw.startsWith('file:') ? File(Uri.parse(raw).path) : File(raw);
+        imageUrl = await p.uploadImage(file);
       }
 
-      // 2️⃣ Datensatz erzeugen
-      final veranstaltung = Veranstaltung(
-        id: '', // Firestore vergibt neue ID
+      // ---  Datensatz bauen ---
+      final v = Veranstaltung(
+        id: '', // Firestore vergibt bei add() eine id
         title: _titleController.text.trim().isEmpty
             ? 'Ohne Titel'
             : _titleController.text.trim(),
@@ -126,18 +128,19 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
         location: null,
       );
 
-      // 3️⃣ speichern
-      await p.add(veranstaltung);
-      debugPrint('Veranstaltung erfolgreich gespeichert');
+      // --- Speichern ---
+      await p.add(v);
 
-      if (mounted) Navigator.pop(context, true);
+      if (!mounted) return;
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Fehler beim Speichern: $e')),
       );
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      // falls Provider intern „saving“ toggelt: trotzdem UI refresh sicherstellen
+      if (mounted) setState(() {});
     }
   }
 

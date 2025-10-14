@@ -57,6 +57,8 @@ class AppRoutes {
   // E-Mail-Verify
   static const String verify = '/verify';
 
+  static var startscreen;
+
   static Route<dynamic> generateRoute(
       RouteSettings settings, AuthRepository auth) {
     switch (settings.name) {

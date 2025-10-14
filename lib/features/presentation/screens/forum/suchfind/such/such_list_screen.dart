@@ -1,58 +1,41 @@
+// lib/features/presentation/screens/forum/suchfind/such/such_list_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:notekey_app/features/presentation/screens/forum/suchfind/such/such_detail_screen.dart';
+import 'package:provider/provider.dart';
+
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
-import 'package:notekey_app/features/presentation/screens/forum/create_entry_page.dart';
-import 'package:notekey_app/features/presentation/screens/forum/data/forum_item.dart';
-import 'package:notekey_app/features/presentation/screens/forum/data/suchfind_fs.dart';
+
+import 'package:notekey_app/features/presentation/screens/forum/suchfind/data/suchfind_model.dart';
+import 'package:notekey_app/features/presentation/screens/forum/suchfind/provider/suchfind_provider.dart';
 import 'such_edit_screen.dart';
 
-class SuchListScreen extends StatefulWidget {
+class SuchListScreen extends StatelessWidget {
   const SuchListScreen({super.key});
 
   @override
-  State<SuchListScreen> createState() => _SuchListScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => SuchfindProvider()..start(kind: MarketKind.such),
+      child: const _Body(),
+    );
+  }
 }
 
-// Such-Liste mit Such-Funktion, Sortierung und Eintrag-Erstellung
-class _SuchListScreenState extends State<SuchListScreen> {
-  final _fs = SuchFindFs();
-  final _search = TextEditingController();
+class _Body extends StatefulWidget {
+  const _Body({super.key});
+  @override
+  State<_Body> createState() => _BodyState();
+}
 
-  String _sortBy = 'date'; // 'date' | 'title'
-  bool _desc = false;
+class _BodyState extends State<_Body> {
+  final _search = TextEditingController();
 
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
-  }
-
-  Stream<List<ForumItem>> _watch() {
-    return _fs.watch(
-      kind: MarketKind.such,
-      type: ForumItemType.market,
-      // sortBy: _sortBy,
-      // desc: _desc,
-      query: _search.text.trim().isEmpty ? null : _search.text.trim(),
-      //nur such-Einträge anzeigen
-    );
-  }
-
-  Future<void> _openCreate() async {
-    final ok = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => const SuchEditScreen()),
-    );
-    if (ok == true) setState(() {}); // Stream aktualisiert automatisch
-  }
-
-  Future<void> _openEdit(ForumItem it) async {
-    final ok = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => SuchEditScreen(initial: it)),
-    );
-    if (ok == true) setState(() {});
   }
 
   @override
@@ -64,86 +47,76 @@ class _SuchListScreenState extends State<SuchListScreen> {
         showBack: true,
         showMenu: false,
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.dunkelbraun,
-        foregroundColor: AppColors.hellbeige,
-        onPressed: _openCreate,
-        child: const Icon(Icons.add),
+      floatingActionButton: Builder(
+        builder: (ctx) => FloatingActionButton(
+          backgroundColor: AppColors.dunkelbraun,
+          foregroundColor: AppColors.hellbeige,
+          onPressed: () async {
+            // WICHTIG: gleiche Provider-Instanz in die Route durchreichen!
+            final ok = await Navigator.push<bool>(
+              ctx,
+              MaterialPageRoute(
+                builder: (_) => ChangeNotifierProvider.value(
+                  value: ctx.read<SuchfindProvider>(),
+                  child: const SuchEditScreen(),
+                ),
+              ),
+            );
+            if (ok == true && mounted) {}
+          },
+          child: const Icon(Icons.add),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _search,
-                    decoration: const InputDecoration(
-                      hintText: 'Suchen (Titel oder Info)…',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                DropdownButton<String>(
-                  value: _sortBy,
-                  items: const [
-                    DropdownMenuItem(value: 'date', child: Text('Datum')),
-                    DropdownMenuItem(value: 'title', child: Text('Titel')),
-                  ],
-                  onChanged: (v) {
-                    if (v == null) return;
-                    setState(() => _sortBy = v);
-                  },
-                ),
-                IconButton(
-                  onPressed: () => setState(() => _desc = !_desc),
-                  icon: Icon(_desc ? Icons.south : Icons.north),
-                ),
-              ],
+            TextField(
+              controller: _search,
+              decoration: const InputDecoration(
+                hintText: 'Suchen (Titel oder Info)…',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => setState(() {}),
             ),
             const SizedBox(height: 8),
-
-            // Firestore Live Liste
             Expanded(
-              child: StreamBuilder<List<ForumItem>>(
-                stream: _watch(),
-                builder: (context, snap) {
-                  if (snap.hasError) {
+              child: Consumer<SuchfindProvider>(
+                builder: (context, p, _) {
+                  if (p.loading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (p.error != null) {
                     return Padding(
                       padding: const EdgeInsets.all(16),
-                      child: SelectableText('Fehler: ${snap.error}'),
-                    );
-                  }
-                  if (!snap.hasData) {
-                    return const Center(
-                      child: SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                      child: SelectableText('Fehler: ${p.error}'),
                     );
                   }
 
-                  final items = snap.data!;
-                  if (items.isEmpty) {
+                  // Filter clientseitig
+                  final q = _search.text.trim().toLowerCase();
+                  var list = p.items.where((it) {
+                    if (q.isEmpty) return true;
+                    final t = it.title.toLowerCase();
+                    final info = (it.description ?? '').toLowerCase();
+                    return t.contains(q) || info.contains(q);
+                  }).toList();
+
+                  if (list.isEmpty) {
                     return const Center(child: Text('Noch keine Einträge.'));
                   }
 
                   return ListView.separated(
-                    itemCount: items.length,
+                    itemCount: list.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (c, i) {
-                      final it = items[i];
-                      final hasImage = it.imagePath != null &&
-                          File(it.imagePath!).existsSync();
+                      final it = list[i];
+                      final img = it.imageUrl;
+                      final hasImg = img != null && img.isNotEmpty;
 
                       return Dismissible(
-                        key: ValueKey(
-                            it.fsId ?? '${it.title}-$i-${it.imagePath ?? ''}'),
+                        key: ValueKey(it.id ?? 'such-$i'),
                         direction: DismissDirection.endToStart,
                         background: Container(
                           alignment: Alignment.centerRight,
@@ -152,8 +125,10 @@ class _SuchListScreenState extends State<SuchListScreen> {
                           child: const Icon(Icons.delete, color: Colors.white),
                         ),
                         onDismissed: (_) async {
-                          if (it.fsId != null) {
-                            await _fs.delete(it.fsId!);
+                          if (it.id != null) {
+                            await context
+                                .read<SuchfindProvider>()
+                                .delete(it.id!);
                           }
                         },
                         child: Card(
@@ -162,11 +137,11 @@ class _SuchListScreenState extends State<SuchListScreen> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: ListTile(
-                            leading: hasImage
+                            leading: hasImg
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
-                                    child: Image.file(
-                                      File(it.imagePath!),
+                                    child: Image.network(
+                                      img!,
                                       width: 56,
                                       height: 56,
                                       fit: BoxFit.cover,
@@ -177,8 +152,22 @@ class _SuchListScreenState extends State<SuchListScreen> {
                                 : const Icon(Icons.search),
                             title: Text(
                                 it.title.isEmpty ? 'Ohne Titel' : it.title),
-                            subtitle: it.info.isEmpty ? null : Text(it.info),
-                            onTap: () => _openEdit(it),
+                            subtitle: (it.description?.isNotEmpty ?? false)
+                                ? Text(it.description!)
+                                : null,
+                            onTap: () {
+                              final id = it.id!;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChangeNotifierProvider.value(
+                                    value: context.read<SuchfindProvider>(),
+                                    child:
+                                        SuchDetailScreen(id: id, initial: it),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       );
