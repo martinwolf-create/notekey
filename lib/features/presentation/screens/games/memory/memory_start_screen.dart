@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:notekey_app/features/themes/colors.dart'; // AppColors
 import 'memory_game_screen.dart';
+import 'package:notekey_app/features/presentation/screens/games/memory/widgets/memory_leaderboard_screen.dart';
 
 class MemoryStartScreen extends StatefulWidget {
   const MemoryStartScreen({super.key});
@@ -110,7 +111,7 @@ class _MemoryStartScreenState extends State<MemoryStartScreen> {
             ),
             const SizedBox(height: 28),
 
-            // CTA 1
+            // CTA 1 Gegen Computer
             _ModeButton(
               icon: Icons.smart_toy_rounded,
               title: "Gegen Computer starten",
@@ -119,12 +120,24 @@ class _MemoryStartScreenState extends State<MemoryStartScreen> {
             ),
             const SizedBox(height: 12),
 
-            // CTA 2
+            // CTA 2 Lokal
             _ModeButton(
               icon: Icons.group_rounded,
               title: "Gegen lokalen Spieler",
               subtitle: "Hot-Seat – abwechselnd auf einem Gerät",
               onTap: () => _go(vsComputer: false),
+            ),
+
+            // CTA 3 Leaderboard
+            const SizedBox(height: 12),
+            _ModeButton(
+              icon: Icons.emoji_events_rounded,
+              title: "Bestenliste",
+              subtitle: "Top-Scores der Community",
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const MemoryLeaderboardScreen()),
+              ),
             ),
 
             const Spacer(),
