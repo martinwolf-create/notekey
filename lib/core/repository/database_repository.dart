@@ -1,4 +1,4 @@
-// Zentrale DB-Schnittstelle: nur Interfaces (keine Implementierungen!)
+// Zentrale DB-Schnittstelle
 import 'package:notekey_app/core/detail_repo/chat/domain/chat_repository.dart';
 import 'package:notekey_app/core/detail_repo/posts/domain/post_repository.dart';
 import 'package:notekey_app/core/detail_repo/events/domain/event_repository.dart';
