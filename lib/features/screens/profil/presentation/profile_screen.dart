@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:notekey_app/features/auth/firebase_auth_repository.dart';
+import 'package:notekey_app/features/routes/app_routes.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -36,30 +37,19 @@ class ProfileScreen extends StatelessWidget {
 
             return NestedScrollView(
               headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                // Collapsible Header mit Cover + Avatar + Name + Bio
+                // CLEAN TOP BAR: Back links, Titel zentriert
                 SliverAppBar(
                   pinned: true,
-                  floating: false,
-                  snap: false,
-                  expandedHeight: 240,
+                  centerTitle: true,
                   backgroundColor: AppColors.dunkelbraun,
                   foregroundColor: Colors.white,
+                  title: const Text('Mein Profil'),
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
-                  title: const Text('Mein Profil'),
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: _ProfileHeader(
-                      username: username,
-                      city: city,
-                      age: age,
-                      bio: bio,
-                      photoUrl: photoUrl,
-                    ),
-                  ),
                 ),
-                // Sticky Tabbar wie bei FB/IG
+                // Sticky Tabbar
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: _TabsHeaderDelegate(
@@ -78,6 +68,24 @@ class ProfileScreen extends StatelessWidget {
                         Tab(text: 'Events'),
                         Tab(text: 'Gespeichert'),
                       ],
+                    ),
+                  ),
+                ),
+                // SUMMARY CARD zwischen Tabs und Inhalt
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                    child: _ProfileSummaryCard(
+                      username: username,
+                      city: city,
+                      age: age,
+                      bio: bio,
+                      photoUrl: photoUrl,
+                      onEdit: () =>
+                          Navigator.of(context).pushNamed(AppRoutes.editProfil),
+                      onShare: () {
+                        // TODO: Teilen-Flow
+                      },
                     ),
                   ),
                 ),
@@ -100,15 +108,15 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-/// ---------- HEADER
-
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({
+class _ProfileSummaryCard extends StatelessWidget {
+  const _ProfileSummaryCard({
     required this.username,
     required this.city,
     required this.age,
     required this.bio,
     required this.photoUrl,
+    required this.onEdit,
+    required this.onShare,
   });
 
   final String username;
@@ -116,131 +124,92 @@ class _ProfileHeader extends StatelessWidget {
   final String age;
   final String bio;
   final String photoUrl;
+  final VoidCallback onEdit;
+  final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // Cover (Beige-Ton mit leichter Textur / Farbfläche)
-        Container(color: AppColors.dunkelbraun),
-        // Beige Welle unten
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: AppColors.hellbeige,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-          ),
-        ),
-        // Inhalt
-        Positioned.fill(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 64, 20, 0),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.rosebeige,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.goldbraun),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Infos + Actions (links)
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Avatar + Namezeile
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                _kv('Username', username.isEmpty ? '—' : username),
+                _kv('Stadt', city.isEmpty ? '—' : city),
+                _kv('Alter', age.isEmpty ? '—' : age),
+                if (bio.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    bio,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        TextStyle(color: AppColors.dunkelbraun.withOpacity(.8)),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    CircleAvatar(
-                      radius: 42,
-                      backgroundColor: AppColors.rosebeige,
-                      backgroundImage:
-                          photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                      child: photoUrl.isEmpty
-                          ? const Icon(Icons.person,
-                              size: 40, color: Colors.white)
-                          : null,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.rosebeige,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.goldbraun),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _kv('Username', username.isEmpty ? '—' : username),
-                            _kv('Stadt', city.isEmpty ? '—' : city),
-                            _kv('Alter', age.isEmpty ? '—' : age),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Bio + Action Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        bio.isEmpty ? '—' : bio,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.hellbeige.withOpacity(.9),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    _HeaderButton(
+                    _HeaderChip(
                       icon: Icons.edit,
                       label: 'Bearbeiten',
-                      onTap: () {
-                        // TODO: navigate to edit_profile_screen.dart
-                      },
+                      onTap: onEdit,
                     ),
-                    const SizedBox(width: 8),
-                    _HeaderButton(
+                    _HeaderChip(
                       icon: Icons.share_outlined,
                       label: 'Teilen',
-                      onTap: () {
-                        // TODO: Teilen-Flow (später)
-                      },
+                      onTap: onShare,
                     ),
                   ],
                 ),
               ],
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 12),
+          // Avatar (rechts)
+          CircleAvatar(
+            radius: 40,
+            backgroundColor: AppColors.hellbeige,
+            backgroundImage:
+                photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+            child: photoUrl.isEmpty
+                ? const Icon(Icons.person,
+                    size: 36, color: AppColors.dunkelbraun)
+                : null,
+          ),
+        ],
+      ),
     );
   }
 
   Widget _kv(String k, String v) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(k,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: Colors.white)),
-          const Text(': ', style: TextStyle(color: Colors.white)),
-          Expanded(
-            child: Text(
-              v,
-              style: const TextStyle(color: Colors.white),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          Text('$k: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+          Flexible(child: Text(v, overflow: TextOverflow.ellipsis)),
         ],
       ),
     );
   }
 }
 
-class _HeaderButton extends StatelessWidget {
-  const _HeaderButton(
+class _HeaderChip extends StatelessWidget {
+  const _HeaderChip(
       {required this.icon, required this.label, required this.onTap});
   final IconData icon;
   final String label;
@@ -257,6 +226,7 @@ class _HeaderButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 18, color: Colors.white),
               const SizedBox(width: 6),
