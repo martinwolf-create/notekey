@@ -4,6 +4,7 @@ import 'package:notekey_app/features/auth/firebase_auth_repository.dart';
 import 'package:notekey_app/features/routes/app_routes.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+// Bilder-Tab (deine Datei)
 import 'package:notekey_app/features/screens/profil/presentation/tabs/profile_images_tab.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -35,6 +36,11 @@ class ProfileScreen extends StatelessWidget {
             final city = (data['city'] ?? '').toString();
             final age = (data['age']?.toString() ?? '—');
             final photoUrl = (data['profileImageUrl'] ?? '').toString();
+            final updatedAtMs =
+                (data['updatedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+            // Cache-Bust für Avatar, damit Änderungen sofort sichtbar werden
+            final photoBusted =
+                photoUrl.isNotEmpty ? '$photoUrl?v=$updatedAtMs' : '';
             final bio = (data['bio'] ?? '').toString();
 
             return NestedScrollView(
@@ -82,7 +88,7 @@ class ProfileScreen extends StatelessWidget {
                       city: city,
                       age: age,
                       bio: bio,
-                      photoUrl: photoUrl,
+                      photoUrl: photoBusted, // <-- busted URL
                       onEdit: () =>
                           Navigator.of(context).pushNamed(AppRoutes.editProfil),
                       onShare: () {
@@ -92,14 +98,15 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
               ],
-              body: const TabBarView(
+              body: TabBarView(
                 children: [
-                  _OverviewTab(),
-                  _ImagesTab(),
-                  _VideosTab(),
-                  _LikesTab(),
-                  _EventsTab(),
-                  _SavedTab(),
+                  const _OverviewTab(),
+                  // Dein echter Bilder-Tab (falls noch Platzhalter, bleibt sichtbar)
+                  const _ImagesTab(),
+                  const _VideosTab(),
+                  const _LikesTab(),
+                  const _EventsTab(),
+                  const _SavedTab(),
                 ],
               ),
             );
@@ -180,7 +187,7 @@ class _ProfileSummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Avatar (rechts)
+          // Avatar (rechts) – nutzt busted URL aus oben
           CircleAvatar(
             radius: 40,
             backgroundColor: AppColors.hellbeige,
@@ -241,24 +248,103 @@ class _HeaderChip extends StatelessWidget {
   }
 }
 
-/// ---------- TABS (Platzhalter v1)
+/// ---------- TABS
 
+/// Übersicht = jetzt mit echten „Meine Veranstaltungen“
 class _OverviewTab extends StatelessWidget {
   const _OverviewTab();
 
   @override
   Widget build(BuildContext context) {
-    return _PlaceholderPanel(
-      title: 'Übersicht',
-      lines: const [
-        '• Letzte Bilder/Videos',
-        '• Zuletzt gelikte Inhalte',
-        '• Nächste Events',
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _panel(
+          title: 'Meine letzten Veranstaltungen',
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('veranstaltung')
+                .where('ownerId',
+                    isEqualTo: uid) // wichtig: ownerId beim Anlegen setzen
+                .orderBy('createdAt', descending: true)
+                .limit(20)
+                .snapshots(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: LinearProgressIndicator(),
+                );
+              }
+              final docs = snap.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return const Text('Noch keine Veranstaltungen.');
+              }
+              return Column(
+                children: docs.map((d) {
+                  final m = d.data();
+                  final title = (m['title'] ?? '').toString();
+                  final whenMs = (m['date_epoch'] as int?) ?? 0;
+                  final when = whenMs > 0
+                      ? DateTime.fromMillisecondsSinceEpoch(whenMs)
+                          .toLocal()
+                          .toString()
+                      : '—';
+                  final owner = (m['ownerId'] ?? m['uid'] ?? '') as String;
+
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: UserAvatar(uid: owner, radius: 18),
+                    title: Text(title,
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(when),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        _panel(
+          title: 'Übersicht',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text('• Letzte Bilder/Videos'),
+              Text('• Zuletzt gelikte Inhalte'),
+              Text('• Nächste Events'),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _panel({required String title, required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.rosebeige,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.goldbraun),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
     );
   }
 }
 
+/// Dein bisheriger Platzhalter bleibt für jetzt bestehen
 class _ImagesTab extends StatelessWidget {
   const _ImagesTab();
 
@@ -418,4 +504,36 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(child: Text(message));
+}
+
+/// ---------- SHARED: Live-Avatar, der den User-Doc streamt (für Listen)
+class UserAvatar extends StatelessWidget {
+  const UserAvatar({super.key, required this.uid, this.radius = 18});
+  final String uid;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    if (uid.isEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        child: const Icon(Icons.person, size: 16),
+      );
+    }
+    final ref = FirebaseFirestore.instance.collection('users').doc(uid);
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: ref.snapshots(),
+      builder: (_, snap) {
+        final d = snap.data?.data();
+        final url = (d?['profileImageUrl'] ?? '') as String;
+        final ts = (d?['updatedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+        final bust = url.isEmpty ? '' : '$url?v=$ts';
+        return CircleAvatar(
+          radius: radius,
+          backgroundImage: bust.isNotEmpty ? NetworkImage(bust) : null,
+          child: bust.isEmpty ? const Icon(Icons.person, size: 16) : null,
+        );
+      },
+    );
+  }
 }
