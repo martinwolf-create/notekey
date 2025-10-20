@@ -266,8 +266,10 @@ class _OverviewTab extends StatelessWidget {
           child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance
                 .collection('veranstaltung')
-                .where('ownerId',
-                    isEqualTo: uid) // wichtig: ownerId beim Anlegen setzen
+                // WICHTIG: Feldname muss zu deinem Save passen.
+                // Wenn du beim Speichern 'uid' setzt (so wie im neuen _save),
+                // dann hier auch 'uid' verwenden:
+                .where('uid', isEqualTo: uid)
                 .orderBy('createdAt', descending: true)
                 .limit(20)
                 .snapshots(),
@@ -278,27 +280,34 @@ class _OverviewTab extends StatelessWidget {
                   child: LinearProgressIndicator(),
                 );
               }
+
               final docs = snap.data?.docs ?? [];
               if (docs.isEmpty) {
                 return const Text('Noch keine Veranstaltungen.');
               }
+
               return Column(
                 children: docs.map((d) {
                   final m = d.data();
                   final title = (m['title'] ?? '').toString();
+
                   final whenMs = (m['date_epoch'] as int?) ?? 0;
                   final when = whenMs > 0
                       ? DateTime.fromMillisecondsSinceEpoch(whenMs)
                           .toLocal()
                           .toString()
                       : '—';
+
                   final owner = (m['ownerId'] ?? m['uid'] ?? '') as String;
 
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: UserAvatar(uid: owner, radius: 18),
-                    title: Text(title,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    title: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     subtitle: Text(when),
                   );
                 }).toList(),
@@ -321,27 +330,26 @@ class _OverviewTab extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _panel({required String title, required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.rosebeige,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.goldbraun),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          const SizedBox(height: 8),
-          child,
-        ],
-      ),
-    );
-  }
+Widget _panel({required String title, required Widget child}) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppColors.rosebeige,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.goldbraun),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        const SizedBox(height: 8),
+        child,
+      ],
+    ),
+  );
 }
 
 /// Dein bisheriger Platzhalter bleibt für jetzt bestehen

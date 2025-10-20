@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 
 import 'package:notekey_app/features/themes/colors.dart';
@@ -10,7 +11,6 @@ import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_l
     show CreatePreset;
 
 import 'provider/veranstaltung_provider.dart';
-import 'data/veranstaltung_model.dart';
 
 class VeranstaltungenScreen extends StatefulWidget {
   final CreatePreset? preset;
@@ -79,10 +79,10 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
   }
 
   Future<void> _save(BuildContext context) async {
-    final p = context.read<VeranstaltungProvider>();
-    if (p.saving) return;
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
 
-    setState(() {}); // UI refresh (Button disabled über p.saving)
+    final p = context.read<VeranstaltungProvider>();
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -94,7 +94,9 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
-                  color: Colors.white, strokeWidth: 2),
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
             ),
             SizedBox(width: 12),
             Text('Speichern…'),
@@ -106,30 +108,38 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
     String? imageUrl;
 
     try {
-      // --- Bild optional hochladen (Pfad sauber normalisieren) ---
+      final uid = FirebaseAuth.instance.currentUser!.uid;
+
+      // Optional: Bild hochladen (jetzt mit passender Regel)
       if (_imagePath != null && _imagePath!.isNotEmpty) {
-        final String raw = _imagePath!;
-        final File file =
+        final raw = _imagePath!;
+        final file =
             raw.startsWith('file:') ? File(Uri.parse(raw).path) : File(raw);
-        imageUrl = await p.uploadImage(file);
+        imageUrl = await p.uploadEventImage(file, ownerUid: uid);
       }
 
-      // ---  Datensatz bauen ---
-      final v = Veranstaltung(
-        id: '', // Firestore vergibt bei add() eine id
-        title: _titleController.text.trim().isEmpty
+      final nowTs = FieldValue.serverTimestamp();
+
+      // Firestore-Daten exakt nach deinen Rules
+      final data = <String, dynamic>{
+        'uid': uid, // Ersteller
+        'title': _titleController.text.trim().isEmpty
             ? 'Ohne Titel'
             : _titleController.text.trim(),
-        description: _infoController.text.trim().isEmpty
+        'info': _infoController.text.trim().isEmpty
             ? null
             : _infoController.text.trim(),
-        date: _date ?? DateTime.now(),
-        imageUrl: imageUrl,
-        location: null,
-      );
+        'imageUrl': imageUrl ?? '',
+        'date_epoch': (_date ?? DateTime.now()).millisecondsSinceEpoch,
+        'createdAt': nowTs,
+        'updatedAt': nowTs,
+      };
 
-      // --- Speichern ---
-      await p.add(v);
+      // leere Strings entfernen
+      data.removeWhere((k, v) => v is String && v.trim().isEmpty);
+
+      // Schreiben in Sammlung "veranstaltung"
+      await FirebaseFirestore.instance.collection('veranstaltung').add(data);
 
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -139,8 +149,7 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
         SnackBar(content: Text('Fehler beim Speichern: $e')),
       );
     } finally {
-      // falls Provider intern „saving“ toggelt: trotzdem UI refresh sicherstellen
-      if (mounted) setState(() {});
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -163,103 +172,98 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
               showBack: true,
               showMenu: false,
             ),
-            body: Stack(
-              children: [
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      GestureDetector(
-                        onTap: () => _pickImage(fromCamera: false),
-                        onLongPress: () => _pickImage(fromCamera: true),
-                        child: Container(
-                          height: 180,
-                          decoration: BoxDecoration(
-                            color: AppColors.hellbeige,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.goldbraun),
-                          ),
-                          child: _imagePath == null
-                              ? const Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.add_a_photo_outlined,
-                                          size: 30),
-                                      SizedBox(height: 8),
-                                      Text('Tippen: Galerie · Long: Kamera'),
-                                    ],
-                                  ),
-                                )
-                              : ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: Image.file(
-                                    File(_imagePath!),
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                  ),
-                                ),
-                        ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GestureDetector(
+                    onTap: () => _pickImage(fromCamera: false),
+                    onLongPress: () => _pickImage(fromCamera: true),
+                    child: Container(
+                      height: 180,
+                      decoration: BoxDecoration(
+                        color: AppColors.hellbeige,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.goldbraun),
                       ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _titleController,
-                        decoration: const InputDecoration(
-                          labelText: 'Titel',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _infoController,
-                        focusNode: _infoNode,
-                        maxLines: 5,
-                        decoration: const InputDecoration(
-                          labelText: 'Info',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(child: Text(dateText)),
-                          ElevatedButton(
-                            onPressed: _pickDate,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.goldbraun,
-                              foregroundColor: Colors.white,
+                      child: _imagePath == null
+                          ? const Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.add_a_photo_outlined, size: 30),
+                                  SizedBox(height: 8),
+                                  Text('Tippen: Galerie · Long: Kamera'),
+                                ],
+                              ),
+                            )
+                          : ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.file(
+                                File(_imagePath!),
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                height: double.infinity,
+                              ),
                             ),
-                            child: const Text('Datum wählen'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Titel',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _infoController,
+                    focusNode: _infoNode,
+                    maxLines: 5,
+                    decoration: const InputDecoration(
+                      labelText: 'Info',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(child: Text(dateText)),
                       ElevatedButton(
-                        onPressed: _isSaving ? null : () => _save(context),
+                        onPressed: _pickDate,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.dunkelbraun,
-                          foregroundColor: AppColors.hellbeige,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                          backgroundColor: AppColors.goldbraun,
+                          foregroundColor: Colors.white,
                         ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Speichern'),
+                        child: const Text('Datum wählen'),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _isSaving ? null : () => _save(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.dunkelbraun,
+                      foregroundColor: AppColors.hellbeige,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text('Speichern'),
+                  ),
+                ],
+              ),
             ),
           );
         },
