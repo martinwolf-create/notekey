@@ -4,8 +4,13 @@ import 'package:notekey_app/features/auth/firebase_auth_repository.dart';
 import 'package:notekey_app/features/routes/app_routes.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 // Bilder-Tab (deine Datei)
 import 'package:notekey_app/features/screens/profil/presentation/tabs/profile_images_tab.dart';
+
+// Detail-Screen:
+import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_detail_screen.dart';
+import 'package:notekey_app/features/screens/forum/data/forum_item.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -38,14 +43,12 @@ class ProfileScreen extends StatelessWidget {
             final photoUrl = (data['profileImageUrl'] ?? '').toString();
             final updatedAtMs =
                 (data['updatedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
-            // Cache-Bust für Avatar, damit Änderungen sofort sichtbar werden
             final photoBusted =
                 photoUrl.isNotEmpty ? '$photoUrl?v=$updatedAtMs' : '';
             final bio = (data['bio'] ?? '').toString();
 
             return NestedScrollView(
               headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                // CLEAN TOP BAR: Back links, Titel zentriert
                 SliverAppBar(
                   pinned: true,
                   centerTitle: true,
@@ -57,7 +60,6 @@ class ProfileScreen extends StatelessWidget {
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
                 ),
-                // Sticky Tabbar
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: _TabsHeaderDelegate(
@@ -79,7 +81,6 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                // SUMMARY CARD zwischen Tabs und Inhalt
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
@@ -88,25 +89,22 @@ class ProfileScreen extends StatelessWidget {
                       city: city,
                       age: age,
                       bio: bio,
-                      photoUrl: photoBusted, // <-- busted URL
+                      photoUrl: photoBusted,
                       onEdit: () =>
                           Navigator.of(context).pushNamed(AppRoutes.editProfil),
-                      onShare: () {
-                        // TODO: Teilen-Flow
-                      },
+                      onShare: () {},
                     ),
                   ),
                 ),
               ],
-              body: TabBarView(
+              body: const TabBarView(
                 children: [
-                  const _OverviewTab(),
-                  // Dein echter Bilder-Tab (falls noch Platzhalter, bleibt sichtbar)
-                  const _ImagesTab(),
-                  const _VideosTab(),
-                  const _LikesTab(),
-                  const _EventsTab(),
-                  const _SavedTab(),
+                  _OverviewTab(),
+                  _ImagesTab(),
+                  _VideosTab(),
+                  _LikesTab(),
+                  _EventsTab(),
+                  _SavedTab(),
                 ],
               ),
             );
@@ -148,7 +146,6 @@ class _ProfileSummaryCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Infos + Actions (links)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,7 +184,6 @@ class _ProfileSummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Avatar (rechts) – nutzt busted URL aus oben
           CircleAvatar(
             radius: 40,
             backgroundColor: AppColors.hellbeige,
@@ -250,7 +246,6 @@ class _HeaderChip extends StatelessWidget {
 
 /// ---------- TABS
 
-/// Übersicht = jetzt mit echten „Meine Veranstaltungen“
 class _OverviewTab extends StatelessWidget {
   const _OverviewTab();
 
@@ -266,9 +261,6 @@ class _OverviewTab extends StatelessWidget {
           child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance
                 .collection('veranstaltung')
-                // WICHTIG: Feldname muss zu deinem Save passen.
-                // Wenn du beim Speichern 'uid' setzt (so wie im neuen _save),
-                // dann hier auch 'uid' verwenden:
                 .where('uid', isEqualTo: uid)
                 .orderBy('createdAt', descending: true)
                 .limit(20)
@@ -290,25 +282,61 @@ class _OverviewTab extends StatelessWidget {
                 children: docs.map((d) {
                   final m = d.data();
                   final title = (m['title'] ?? '').toString();
-
                   final whenMs = (m['date_epoch'] as int?) ?? 0;
                   final when = whenMs > 0
                       ? DateTime.fromMillisecondsSinceEpoch(whenMs)
                           .toLocal()
                           .toString()
                       : '—';
-
-                  final owner = (m['ownerId'] ?? m['uid'] ?? '') as String;
+                  final img = (m['imageUrl'] ?? '').toString();
+                  final owner = (m['uid'] ?? '').toString(); // Ersteller
+                  final id = d.id;
 
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: UserAvatar(uid: owner, radius: 18),
+                    leading: Hero(
+                      tag: 'event_$id',
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundImage:
+                            img.isNotEmpty ? NetworkImage(img) : null,
+                        child: img.isEmpty
+                            ? const Icon(Icons.event, size: 18)
+                            : null,
+                      ),
+                    ),
                     title: Text(
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(when),
+                    onTap: () {
+                      // Für weiche Animation: initial-Objekt bauen
+                      final item = ForumItem(
+                        fsId: id,
+                        ownerUid: owner,
+                        type: ForumItemType.event,
+                        title: title,
+                        info: (m['info'] ?? '').toString(),
+                        imagePath: img,
+                        date: whenMs > 0
+                            ? DateTime.fromMillisecondsSinceEpoch(whenMs)
+                            : null,
+                        priceCents: m['price_cents'] as int?,
+                        currency: (m['price_currency'] ?? '').toString(),
+                      );
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VeranstaltungDetailScreen(
+                            fsId: id,
+                            initial: item,
+                          ),
+                        ),
+                      );
+                    },
                   );
                 }).toList(),
               );
@@ -352,132 +380,57 @@ Widget _panel({required String title, required Widget child}) {
   );
 }
 
-/// Dein bisheriger Platzhalter bleibt für jetzt bestehen
 class _ImagesTab extends StatelessWidget {
   const _ImagesTab();
-
   @override
   Widget build(BuildContext context) {
     return _PlaceholderPanel(
       title: 'Bilder',
-      lines: const [
-        'Grid mit deinen Bildern',
-        'Paginierung & Cache',
-      ],
+      lines: const ['Grid mit deinen Bildern', 'Paginierung & Cache'],
     );
   }
 }
 
 class _VideosTab extends StatelessWidget {
   const _VideosTab();
-
   @override
   Widget build(BuildContext context) {
     return _PlaceholderPanel(
       title: 'Videos',
-      lines: const [
-        'Thumbnails + Dauer',
-        'Play in Detailansicht',
-      ],
+      lines: const ['Thumbnails + Dauer', 'Play in Detailansicht'],
     );
   }
 }
 
 class _LikesTab extends StatelessWidget {
   const _LikesTab();
-
   @override
   Widget build(BuildContext context) {
     return _PlaceholderPanel(
       title: 'Likes',
-      lines: const [
-        'Medien / Posts / Events',
-        'Filter: Typ auswählen',
-      ],
+      lines: const ['Medien / Posts / Events', 'Filter: Typ auswählen'],
     );
   }
 }
 
-// = Neuer Events-Tab: zeigt die eigenen Veranstaltungen =
 class _EventsTab extends StatelessWidget {
   const _EventsTab();
-
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _panel(
-          title: 'Meine Events',
-          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance
-                .collection('veranstaltung')
-                .where('uid', isEqualTo: uid) // wie beim Speichern
-                .orderBy('createdAt', descending: true) // nutzt deinen Index
-                .snapshots(),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: LinearProgressIndicator(),
-                );
-              }
-
-              final docs = snap.data?.docs ?? [];
-              if (docs.isEmpty) {
-                return const Text('Noch keine Veranstaltungen.');
-              }
-
-              return Column(
-                children: docs.map((d) {
-                  final m = d.data();
-                  final title = (m['title'] ?? '').toString();
-
-                  final whenMs = (m['date_epoch'] as int?) ?? 0;
-                  final when = whenMs > 0
-                      ? DateTime.fromMillisecondsSinceEpoch(whenMs)
-                          .toLocal()
-                          .toString()
-                      : '—';
-
-                  final img = (m['imageUrl'] ?? '') as String;
-
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      radius: 20,
-                      backgroundImage:
-                          img.isNotEmpty ? NetworkImage(img) : null,
-                      child: img.isEmpty ? const Icon(Icons.event) : null,
-                    ),
-                    title: Text(title,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text(when),
-                    // onTap: () => Navigator.push(... zur Detailansicht),
-                  );
-                }).toList(),
-              );
-            },
-          ),
-        ),
-      ],
+    return _PlaceholderPanel(
+      title: 'Events',
+      lines: const ['Gelikt • Gespeichert • Teilgenommen', 'Filterchips oben'],
     );
   }
 }
 
 class _SavedTab extends StatelessWidget {
   const _SavedTab();
-
   @override
   Widget build(BuildContext context) {
     return _PlaceholderPanel(
       title: 'Gespeichert',
-      lines: const [
-        'Deine Bookmarks',
-        'Medien / Posts / Events',
-      ],
+      lines: const ['Deine Bookmarks', 'Medien / Posts / Events'],
     );
   }
 }
@@ -535,10 +488,7 @@ class _PlaceholderPanel extends StatelessWidget {
               for (final l in lines)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    l,
-                    style: const TextStyle(fontSize: 15),
-                  ),
+                  child: Text(l, style: const TextStyle(fontSize: 15)),
                 ),
             ],
           ),
@@ -566,36 +516,4 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(child: Text(message));
-}
-
-/// ---------- SHARED: Live-Avatar, der den User-Doc streamt (für Listen)
-class UserAvatar extends StatelessWidget {
-  const UserAvatar({super.key, required this.uid, this.radius = 18});
-  final String uid;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    if (uid.isEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        child: const Icon(Icons.person, size: 16),
-      );
-    }
-    final ref = FirebaseFirestore.instance.collection('users').doc(uid);
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: ref.snapshots(),
-      builder: (_, snap) {
-        final d = snap.data?.data();
-        final url = (d?['profileImageUrl'] ?? '') as String;
-        final ts = (d?['updatedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
-        final bust = url.isEmpty ? '' : '$url?v=$ts';
-        return CircleAvatar(
-          radius: radius,
-          backgroundImage: bust.isNotEmpty ? NetworkImage(bust) : null,
-          child: bust.isEmpty ? const Icon(Icons.person, size: 16) : null,
-        );
-      },
-    );
-  }
 }

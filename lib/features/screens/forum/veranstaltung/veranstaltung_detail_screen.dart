@@ -1,17 +1,15 @@
-// lib/features/presentation/screens/forum/veranstaltung/veranstaltung_detail_screen.dart
-
+// lib/features/screens/forum/veranstaltung/veranstaltung_detail_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/screens/forum/data/forum_item.dart';
 import 'package:notekey_app/features/screens/forum/data/veranstaltung_fs.dart';
 
-import 'widgets/veranstaltung_actions.dart';
-import 'widgets/veranstaltung_image.dart'; // falls du dieses Widget nutzt
-
 class VeranstaltungDetailScreen extends StatelessWidget {
-  final String fsId; // Dokument-ID aus Firestore
+  final String fsId; // Firestore-Dokument-ID
   final ForumItem? initial; // optional: bereits geladener Datensatz
 
   const VeranstaltungDetailScreen({
@@ -24,57 +22,87 @@ class VeranstaltungDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final fs = VeranstaltungenFs();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Veranstaltung')),
-      body: StreamBuilder<ForumItem?>(
-        stream: fs.watchById(fsId), // live aus Firestore
-        initialData: initial,
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snap.hasData || snap.data == null) {
-            return const Center(child: Text('Veranstaltung nicht gefunden.'));
-          }
+    // Lokales Theme-Override: neutrale, „goldbraune“ Fokusfarbe statt lila
+    final inputTheme = Theme.of(context).inputDecorationTheme.copyWith(
+          focusedBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.goldbraun, width: 2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(
+              color: AppColors.dunkelbraun.withOpacity(.25),
+              width: 1.2,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+        );
 
-          final it = snap.data!;
-          final currentUid = FirebaseAuth.instance.currentUser?.uid;
-          final isOwner = (currentUid != null && currentUid == it.ownerUid);
+    return Theme(
+      data: Theme.of(context).copyWith(inputDecorationTheme: inputTheme),
+      child: Scaffold(
+        backgroundColor: AppColors.hellbeige,
+        appBar: AppBar(
+          backgroundColor: AppColors.dunkelbraun,
+          foregroundColor: Colors.white,
+          title: const Text('Veranstaltung'),
+        ),
+        body: StreamBuilder<ForumItem?>(
+          stream: fs.watchById(fsId), // live aus Firestore
+          initialData: initial,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (!snap.hasData || snap.data == null) {
+              return const Center(child: Text('Veranstaltung nicht gefunden.'));
+            }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: <Widget>[
-              if (it.imagePath != null && it.imagePath!.isNotEmpty) ...<Widget>[
-                // Wenn du dein eigenes Widget hast:
-                VeranstaltungImage(imagePath: it.imagePath!),
-                // Alternativ direkt anzeigen:
-                // _ImageBox(imagePath: it.imagePath!),
+            final it = snap.data!;
+            final currentUid = FirebaseAuth.instance.currentUser?.uid;
+            final ownerUid = it.ownerUid ?? '';
+            final isOwner = currentUid != null && currentUid == ownerUid;
+
+            final imageUrl =
+                (it.imagePath?.isNotEmpty == true) ? it.imagePath! : '';
+
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (imageUrl.isNotEmpty) ...[
+                  Hero(
+                    tag: 'event_$fsId',
+                    child: _ImageBox(imagePath: imageUrl),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Text(
+                  it.title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: AppColors.dunkelbraun,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                if (it.info.isNotEmpty)
+                  Text(
+                    it.info,
+                    style:
+                        TextStyle(color: AppColors.dunkelbraun.withOpacity(.9)),
+                  ),
                 const SizedBox(height: 12),
+                _EventLikeBar(eventId: fsId),
+                const SizedBox(height: 24),
+                _CommentsSection(eventId: fsId, ownerUid: ownerUid),
               ],
-              Text(
-                it.title,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              Text(it.info),
-              const SizedBox(height: 16),
-              VeranstaltungActions(
-                fsId: it.fsId!,
-                isOwner: isOwner,
-              ),
-              const SizedBox(height: 24),
-              // Hier kannst du später Kommentare anhängen
-              // VeranstaltungComments(fsId: it.fsId!),
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-// Nur falls du KEIN eigenes Bild-Widget verwendest, kannst du das hier nutzen.
-// Sonst diesen Block weglassen.
+/// = Bildanzeige; URL oder lokaler Pfad =
 class _ImageBox extends StatelessWidget {
   final String imagePath;
   const _ImageBox({required this.imagePath});
@@ -89,13 +117,327 @@ class _ImageBox extends StatelessWidget {
             ? FileImage(File(Uri.parse(p).path))
             : FileImage(File(p))) as ImageProvider;
 
-    return Container(
-      height: 200,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        image: DecorationImage(image: provider, fit: BoxFit.cover),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Image(image: provider, fit: BoxFit.cover),
       ),
+    );
+  }
+}
+
+/// = Likes am Event (Herz + Live-Count) =
+class _EventLikeBar extends StatelessWidget {
+  const _EventLikeBar({required this.eventId});
+  final String eventId;
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final likesRef = FirebaseFirestore.instance
+        .collection('veranstaltung')
+        .doc(eventId)
+        .collection('likes');
+
+    return Row(
+      children: [
+        // Toggle-Button (mein Like)
+        if (uid == null)
+          IconButton(
+            onPressed: null,
+            icon: const Icon(Icons.favorite_border),
+            tooltip: 'Anmelden zum Liken',
+          )
+        else
+          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            stream: likesRef.doc(uid).snapshots(),
+            builder: (context, snap) {
+              final liked = snap.data?.exists == true;
+              return IconButton(
+                tooltip: liked ? 'Gefällt mir nicht mehr' : 'Gefällt mir',
+                icon: Icon(
+                  liked ? Icons.favorite : Icons.favorite_border,
+                  color: liked ? Colors.red : AppColors.dunkelbraun,
+                ),
+                onPressed: () async {
+                  final meDoc = likesRef.doc(uid);
+                  final exists = (await meDoc.get()).exists;
+                  if (exists) {
+                    await meDoc.delete();
+                  } else {
+                    await meDoc
+                        .set({'uid': uid, 'at': FieldValue.serverTimestamp()});
+                  }
+                },
+              );
+            },
+          ),
+
+        // Live-Zähler
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: likesRef.snapshots(),
+          builder: (context, snap) {
+            final count = snap.data?.docs.length ?? 0;
+            return Text(
+              '$count Likes',
+              style: TextStyle(color: AppColors.dunkelbraun.withOpacity(.9)),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// = Kommentare (Liste + Eingabe + Likes pro Kommentar) =
+class _CommentsSection extends StatelessWidget {
+  const _CommentsSection({required this.eventId, required this.ownerUid});
+  final String eventId;
+  final String ownerUid;
+
+  @override
+  Widget build(BuildContext context) {
+    final commentsQuery = FirebaseFirestore.instance
+        .collection('veranstaltung')
+        .doc(eventId)
+        .collection('comments')
+        .orderBy('createdAt', descending: true);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Kommentare', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+
+        // Liste
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: commentsQuery.snapshots(),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: LinearProgressIndicator(),
+              );
+            }
+            final docs = snap.data?.docs ?? [];
+            if (docs.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('Noch keine Kommentare.'),
+              );
+            }
+
+            return Column(
+              children: docs.map((d) {
+                final m = d.data();
+                final commentId = d.id;
+                final text = (m['text'] ?? '').toString();
+                final authorUid = (m['uid'] ?? '').toString();
+                final displayName = (m['displayName'] ?? '').toString();
+                final photoUrl = (m['photoUrl'] ?? '').toString();
+
+                final currentUid = FirebaseAuth.instance.currentUser?.uid;
+                final canDelete =
+                    (currentUid != null && currentUid == authorUid) ||
+                        (currentUid != null && currentUid == ownerUid);
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundImage:
+                            photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                        child: photoUrl.isEmpty
+                            ? const Icon(Icons.person, size: 16)
+                            : null,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName.isNotEmpty ? displayName : 'User',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(text),
+                            const SizedBox(height: 4),
+                            _CommentLikeRow(
+                              eventId: eventId,
+                              commentId: commentId,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (canDelete)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () async {
+                            await FirebaseFirestore.instance
+                                .collection('veranstaltung')
+                                .doc(eventId)
+                                .collection('comments')
+                                .doc(commentId)
+                                .delete();
+                          },
+                        ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+
+        const SizedBox(height: 8),
+        _CommentInput(eventId: eventId),
+      ],
+    );
+  }
+}
+
+/// Herz + Count unter einem Kommentar
+class _CommentLikeRow extends StatelessWidget {
+  const _CommentLikeRow({required this.eventId, required this.commentId});
+  final String eventId;
+  final String commentId;
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final ref = FirebaseFirestore.instance
+        .collection('veranstaltung')
+        .doc(eventId)
+        .collection('comments')
+        .doc(commentId)
+        .collection('likes');
+
+    return Row(
+      children: [
+        if (uid == null)
+          IconButton(onPressed: null, icon: const Icon(Icons.favorite_border))
+        else
+          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            stream: ref.doc(uid).snapshots(),
+            builder: (context, snap) {
+              final liked = snap.data?.exists == true;
+              return IconButton(
+                icon: Icon(
+                  liked ? Icons.favorite : Icons.favorite_border,
+                  size: 20,
+                  color: liked ? Colors.red : AppColors.dunkelbraun,
+                ),
+                onPressed: () async {
+                  final me = ref.doc(uid);
+                  final exists = (await me.get()).exists;
+                  if (exists) {
+                    await me.delete();
+                  } else {
+                    await me
+                        .set({'uid': uid, 'at': FieldValue.serverTimestamp()});
+                  }
+                },
+              );
+            },
+          ),
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: ref.snapshots(),
+          builder: (context, snap) {
+            final c = snap.data?.docs.length ?? 0;
+            return Text('$c', style: TextStyle(color: AppColors.dunkelbraun));
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// Eingabezeile zum Kommentieren
+class _CommentInput extends StatefulWidget {
+  const _CommentInput({required this.eventId});
+  final String eventId;
+
+  @override
+  State<_CommentInput> createState() => _CommentInputState();
+}
+
+class _CommentInputState extends State<_CommentInput> {
+  final _ctrl = TextEditingController();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final txt = _ctrl.text.trim();
+    if (txt.isEmpty) return;
+
+    setState(() => _sending = true);
+    try {
+      // Profildaten für Anzeige-Namen / Foto
+      final uDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final u = uDoc.data() ?? {};
+      final displayName = (u['username'] ?? '').toString();
+      final photoUrl = (u['profileImageUrl'] ?? '').toString();
+
+      await FirebaseFirestore.instance
+          .collection('veranstaltung')
+          .doc(widget.eventId)
+          .collection('comments')
+          .add({
+        'uid': uid,
+        'text': txt,
+        'displayName': displayName,
+        'photoUrl': photoUrl,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      _ctrl.clear();
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _ctrl,
+            minLines: 1,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: 'Kommentieren…',
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        _sending
+            ? const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : IconButton(
+                icon: const Icon(Icons.send),
+                onPressed: _send,
+              ),
+      ],
     );
   }
 }
