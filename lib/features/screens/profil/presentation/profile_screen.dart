@@ -1,16 +1,15 @@
+// lib/features/screens/profil/profile_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:notekey_app/features/auth/firebase_auth_repository.dart';
 import 'package:notekey_app/features/routes/app_routes.dart';
 import 'package:notekey_app/features/themes/colors.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
-// Bilder-Tab (deine Datei)
-import 'package:notekey_app/features/screens/profil/presentation/tabs/profile_images_tab.dart';
-
-// Detail-Screen:
+// Detail-Screen der Veranstaltung
 import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_detail_screen.dart';
-import 'package:notekey_app/features/screens/forum/data/forum_item.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -43,6 +42,7 @@ class ProfileScreen extends StatelessWidget {
             final photoUrl = (data['profileImageUrl'] ?? '').toString();
             final updatedAtMs =
                 (data['updatedAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+            // Cache-Bust für Avatar
             final photoBusted =
                 photoUrl.isNotEmpty ? '$photoUrl?v=$updatedAtMs' : '';
             final bio = (data['bio'] ?? '').toString();
@@ -92,7 +92,9 @@ class ProfileScreen extends StatelessWidget {
                       photoUrl: photoBusted,
                       onEdit: () =>
                           Navigator.of(context).pushNamed(AppRoutes.editProfil),
-                      onShare: () {},
+                      onShare: () {
+                        // optional: Teilen-Flow
+                      },
                     ),
                   ),
                 ),
@@ -146,6 +148,7 @@ class _ProfileSummaryCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Infos + Actions (links)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,6 +187,7 @@ class _ProfileSummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
+          // Avatar (rechts) – busted URL
           CircleAvatar(
             radius: 40,
             backgroundColor: AppColors.hellbeige,
@@ -246,6 +250,7 @@ class _HeaderChip extends StatelessWidget {
 
 /// ---------- TABS
 
+/// Übersicht = „Meine letzten Veranstaltungen“ (20) mit Tap -> Detail + Hero
 class _OverviewTab extends StatelessWidget {
   const _OverviewTab();
 
@@ -281,62 +286,36 @@ class _OverviewTab extends StatelessWidget {
               return Column(
                 children: docs.map((d) {
                   final m = d.data();
+                  final id = d.id;
                   final title = (m['title'] ?? '').toString();
+                  final img = (m['imageUrl'] ?? '').toString();
+
                   final whenMs = (m['date_epoch'] as int?) ?? 0;
                   final when = whenMs > 0
                       ? DateTime.fromMillisecondsSinceEpoch(whenMs)
                           .toLocal()
                           .toString()
                       : '—';
-                  final img = (m['imageUrl'] ?? '').toString();
-                  final owner = (m['uid'] ?? '').toString(); // Ersteller
-                  final id = d.id;
 
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Hero(
-                      tag: 'event_$id',
-                      child: CircleAvatar(
-                        radius: 18,
-                        backgroundImage:
-                            img.isNotEmpty ? NetworkImage(img) : null,
-                        child: img.isEmpty
-                            ? const Icon(Icons.event, size: 18)
-                            : null,
-                      ),
-                    ),
-                    title: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(when),
+                  return InkWell(
                     onTap: () {
-                      // Für weiche Animation: initial-Objekt bauen
-                      final item = ForumItem(
-                        fsId: id,
-                        ownerUid: owner,
-                        type: ForumItemType.event,
-                        title: title,
-                        info: (m['info'] ?? '').toString(),
-                        imagePath: img,
-                        date: whenMs > 0
-                            ? DateTime.fromMillisecondsSinceEpoch(whenMs)
-                            : null,
-                        priceCents: m['price_cents'] as int?,
-                        currency: (m['price_currency'] ?? '').toString(),
-                      );
-
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => VeranstaltungDetailScreen(
-                            fsId: id,
-                            initial: item,
-                          ),
+                          builder: (_) => VeranstaltungDetailScreen(fsId: id),
                         ),
                       );
                     },
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: _EventLeadingThumb(id: id, imageUrl: img),
+                      title: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(when),
+                    ),
                   );
                 }).toList(),
               );
@@ -353,6 +332,82 @@ class _OverviewTab extends StatelessWidget {
               Text('• Zuletzt gelikte Inhalte'),
               Text('• Nächste Events'),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Events-Tab = alle eigenen Veranstaltungen mit Tap -> Detail + Hero
+class _EventsTab extends StatelessWidget {
+  const _EventsTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _panel(
+          title: 'Events',
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('veranstaltung')
+                .where('uid', isEqualTo: uid)
+                .orderBy('createdAt', descending: true)
+                .snapshots(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: LinearProgressIndicator(),
+                );
+              }
+
+              final docs = snap.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return const Text('Noch keine Veranstaltungen.');
+              }
+
+              return Column(
+                children: docs.map((d) {
+                  final m = d.data();
+                  final id = d.id;
+                  final title = (m['title'] ?? '').toString();
+                  final img = (m['imageUrl'] ?? '').toString();
+
+                  final whenMs = (m['date_epoch'] as int?) ?? 0;
+                  final when = whenMs > 0
+                      ? DateTime.fromMillisecondsSinceEpoch(whenMs)
+                          .toLocal()
+                          .toString()
+                      : '—';
+
+                  return InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VeranstaltungDetailScreen(fsId: id),
+                        ),
+                      );
+                    },
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: _EventLeadingThumb(id: id, imageUrl: img),
+                      title: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(when),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
           ),
         ),
       ],
@@ -380,59 +435,45 @@ Widget _panel({required String title, required Widget child}) {
   );
 }
 
+/// Mini-Platzhalter für die anderen Tabs (kannst du später ersetzen)
 class _ImagesTab extends StatelessWidget {
   const _ImagesTab();
   @override
-  Widget build(BuildContext context) {
-    return _PlaceholderPanel(
-      title: 'Bilder',
-      lines: const ['Grid mit deinen Bildern', 'Paginierung & Cache'],
-    );
-  }
+  Widget build(BuildContext context) =>
+      const _PlaceholderPanel(title: 'Bilder', lines: [
+        'Grid mit deinen Bildern',
+        'Paginierung & Cache',
+      ]);
 }
 
 class _VideosTab extends StatelessWidget {
   const _VideosTab();
   @override
-  Widget build(BuildContext context) {
-    return _PlaceholderPanel(
-      title: 'Videos',
-      lines: const ['Thumbnails + Dauer', 'Play in Detailansicht'],
-    );
-  }
+  Widget build(BuildContext context) =>
+      const _PlaceholderPanel(title: 'Videos', lines: [
+        'Thumbnails + Dauer',
+        'Play in Detailansicht',
+      ]);
 }
 
 class _LikesTab extends StatelessWidget {
   const _LikesTab();
   @override
-  Widget build(BuildContext context) {
-    return _PlaceholderPanel(
-      title: 'Likes',
-      lines: const ['Medien / Posts / Events', 'Filter: Typ auswählen'],
-    );
-  }
-}
-
-class _EventsTab extends StatelessWidget {
-  const _EventsTab();
-  @override
-  Widget build(BuildContext context) {
-    return _PlaceholderPanel(
-      title: 'Events',
-      lines: const ['Gelikt • Gespeichert • Teilgenommen', 'Filterchips oben'],
-    );
-  }
+  Widget build(BuildContext context) =>
+      const _PlaceholderPanel(title: 'Likes', lines: [
+        'Medien / Posts / Events',
+        'Filter: Typ auswählen',
+      ]);
 }
 
 class _SavedTab extends StatelessWidget {
   const _SavedTab();
   @override
-  Widget build(BuildContext context) {
-    return _PlaceholderPanel(
-      title: 'Gespeichert',
-      lines: const ['Deine Bookmarks', 'Medien / Posts / Events'],
-    );
-  }
+  Widget build(BuildContext context) =>
+      const _PlaceholderPanel(title: 'Gespeichert', lines: [
+        'Deine Bookmarks',
+        'Medien / Posts / Events',
+      ]);
 }
 
 /// ---------- HELPERS UI
@@ -488,7 +529,10 @@ class _PlaceholderPanel extends StatelessWidget {
               for (final l in lines)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(l, style: const TextStyle(fontSize: 15)),
+                  child: Text(
+                    l,
+                    style: const TextStyle(fontSize: 15),
+                  ),
                 ),
             ],
           ),
@@ -516,4 +560,33 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(child: Text(message));
+}
+
+/// Kleines rundes Vorschaubild mit Hero-Tag für nahtlose Transition
+class _EventLeadingThumb extends StatelessWidget {
+  const _EventLeadingThumb({required this.id, required this.imageUrl});
+
+  final String id;
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImg = imageUrl.isNotEmpty;
+    final w = 36.0;
+
+    return Hero(
+      tag: 'event_$id',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(w / 2),
+        child: Container(
+          width: w,
+          height: w,
+          color: AppColors.hellbeige,
+          child: hasImg
+              ? Image.network(imageUrl, fit: BoxFit.cover)
+              : const Icon(Icons.event, size: 20),
+        ),
+      ),
+    );
+  }
 }
