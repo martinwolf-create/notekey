@@ -398,16 +398,70 @@ class _LikesTab extends StatelessWidget {
   }
 }
 
+// = Neuer Events-Tab: zeigt die eigenen Veranstaltungen =
 class _EventsTab extends StatelessWidget {
   const _EventsTab();
 
   @override
   Widget build(BuildContext context) {
-    return _PlaceholderPanel(
-      title: 'Events',
-      lines: const [
-        'Gelikt • Gespeichert • Teilgenommen',
-        'Filterchips oben',
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _panel(
+          title: 'Meine Events',
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('veranstaltung')
+                .where('uid', isEqualTo: uid) // wie beim Speichern
+                .orderBy('createdAt', descending: true) // nutzt deinen Index
+                .snapshots(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: LinearProgressIndicator(),
+                );
+              }
+
+              final docs = snap.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return const Text('Noch keine Veranstaltungen.');
+              }
+
+              return Column(
+                children: docs.map((d) {
+                  final m = d.data();
+                  final title = (m['title'] ?? '').toString();
+
+                  final whenMs = (m['date_epoch'] as int?) ?? 0;
+                  final when = whenMs > 0
+                      ? DateTime.fromMillisecondsSinceEpoch(whenMs)
+                          .toLocal()
+                          .toString()
+                      : '—';
+
+                  final img = (m['imageUrl'] ?? '') as String;
+
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      radius: 20,
+                      backgroundImage:
+                          img.isNotEmpty ? NetworkImage(img) : null,
+                      child: img.isEmpty ? const Icon(Icons.event) : null,
+                    ),
+                    title: Text(title,
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(when),
+                    // onTap: () => Navigator.push(... zur Detailansicht),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
