@@ -1,4 +1,3 @@
-// lib/features/screens/forum/veranstaltung/veranstaltung_detail_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,9 +7,12 @@ import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/screens/forum/data/forum_item.dart';
 import 'package:notekey_app/features/screens/forum/data/veranstaltung_fs.dart';
 
+// WICHTIG: wir nutzen deinen Bearbeiten-Screen hier
+import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_bearbeiten_screen.dart';
+
 class VeranstaltungDetailScreen extends StatelessWidget {
-  final String fsId; // Firestore-Dokument-ID
-  final ForumItem? initial; // optional: bereits geladener Datensatz
+  final String fsId;
+  final ForumItem? initial;
 
   const VeranstaltungDetailScreen({
     super.key,
@@ -22,7 +24,7 @@ class VeranstaltungDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final fs = VeranstaltungenFs();
 
-    // Lokales Theme-Override: neutrale, „goldbraune“ Fokusfarbe statt lila
+    // dein InputBorder Theme (Goldbraun statt Lila)
     final inputTheme = Theme.of(context).inputDecorationTheme.copyWith(
           focusedBorder: OutlineInputBorder(
             borderSide: const BorderSide(color: AppColors.goldbraun, width: 2),
@@ -45,9 +47,64 @@ class VeranstaltungDetailScreen extends StatelessWidget {
           backgroundColor: AppColors.dunkelbraun,
           foregroundColor: Colors.white,
           title: const Text('Veranstaltung'),
+
+          // ✎ Button nur anzeigen, wenn aktueller User = Besitzer
+          actions: [
+            Builder(
+              builder: (context) {
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+
+                return StreamBuilder<ForumItem?>(
+                  stream: fs.watchById(fsId),
+                  initialData: initial,
+                  builder: (context, snap) {
+                    final it = snap.data;
+                    final ownerUid = it?.ownerUid ?? '';
+                    final isOwner = uid != null && uid == ownerUid;
+
+                    if (!isOwner) {
+                      // kein Button für fremde Events
+                      return const SizedBox.shrink();
+                    }
+
+                    return IconButton(
+                      tooltip: 'Bearbeiten',
+                      icon: const Icon(Icons.edit),
+                      onPressed: () async {
+                        // wir springen jetzt in deinen Bearbeiten-Screen
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => VeranstaltungBearbeitenScreen(
+                              veranstaltungId: fsId,
+                            ),
+                          ),
+                        );
+
+                        // Wenn dort gespeichert wurde -> Snack hier zeigen
+                        if (result == true && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: AppColors.goldbraun,
+                              content: Text(
+                                'Änderungen gespeichert.',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ],
         ),
+
+        // -------- Body mit Inhalt, Likes, Kommentaren --------
         body: StreamBuilder<ForumItem?>(
-          stream: fs.watchById(fsId), // live aus Firestore
+          stream: fs.watchById(fsId),
           initialData: initial,
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
@@ -60,14 +117,13 @@ class VeranstaltungDetailScreen extends StatelessWidget {
             final it = snap.data!;
             final currentUid = FirebaseAuth.instance.currentUser?.uid;
             final ownerUid = it.ownerUid ?? '';
-            final isOwner = currentUid != null && currentUid == ownerUid;
-
             final imageUrl =
                 (it.imagePath?.isNotEmpty == true) ? it.imagePath! : '';
 
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // Bild
                 if (imageUrl.isNotEmpty) ...[
                   Hero(
                     tag: 'event_$fsId',
@@ -75,6 +131,8 @@ class VeranstaltungDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                 ],
+
+                // Titel
                 Text(
                   it.title,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -83,16 +141,27 @@ class VeranstaltungDetailScreen extends StatelessWidget {
                       ),
                 ),
                 const SizedBox(height: 8),
+
+                // Info
                 if (it.info.isNotEmpty)
                   Text(
                     it.info,
                     style:
                         TextStyle(color: AppColors.dunkelbraun.withOpacity(.9)),
                   ),
+
                 const SizedBox(height: 12),
+
+                // Likes für das Event
                 _EventLikeBar(eventId: fsId),
+
                 const SizedBox(height: 24),
-                _CommentsSection(eventId: fsId, ownerUid: ownerUid),
+
+                // Kommentare unter der Veranstaltung
+                _CommentsSection(
+                  eventId: fsId,
+                  ownerUid: ownerUid,
+                ),
               ],
             );
           },
@@ -102,7 +171,8 @@ class VeranstaltungDetailScreen extends StatelessWidget {
   }
 }
 
-/// = Bildanzeige; URL oder lokaler Pfad =
+// ========== Bildbox (gleich wie bei dir) ==========
+
 class _ImageBox extends StatelessWidget {
   final String imagePath;
   const _ImageBox({required this.imagePath});
@@ -127,7 +197,8 @@ class _ImageBox extends StatelessWidget {
   }
 }
 
-/// = Likes am Event (Herz + Live-Count) =
+// ========== Likes am Event ==========
+
 class _EventLikeBar extends StatelessWidget {
   const _EventLikeBar({required this.eventId});
   final String eventId;
@@ -142,12 +213,11 @@ class _EventLikeBar extends StatelessWidget {
 
     return Row(
       children: [
-        // Toggle-Button (mein Like)
+        // Mein Like / Unlike
         if (uid == null)
           IconButton(
             onPressed: null,
             icon: const Icon(Icons.favorite_border),
-            tooltip: 'Anmelden zum Liken',
           )
         else
           StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -155,7 +225,6 @@ class _EventLikeBar extends StatelessWidget {
             builder: (context, snap) {
               final liked = snap.data?.exists == true;
               return IconButton(
-                tooltip: liked ? 'Gefällt mir nicht mehr' : 'Gefällt mir',
                 icon: Icon(
                   liked ? Icons.favorite : Icons.favorite_border,
                   color: liked ? Colors.red : AppColors.dunkelbraun,
@@ -166,15 +235,17 @@ class _EventLikeBar extends StatelessWidget {
                   if (exists) {
                     await meDoc.delete();
                   } else {
-                    await meDoc
-                        .set({'uid': uid, 'at': FieldValue.serverTimestamp()});
+                    await meDoc.set({
+                      'uid': uid,
+                      'at': FieldValue.serverTimestamp(),
+                    });
                   }
                 },
               );
             },
           ),
 
-        // Live-Zähler
+        // Anzahl Likes
         StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: likesRef.snapshots(),
           builder: (context, snap) {
@@ -190,7 +261,8 @@ class _EventLikeBar extends StatelessWidget {
   }
 }
 
-/// = Kommentare (Liste + Eingabe + Likes pro Kommentar) =
+// ========== Kommentarbereich ==========
+
 class _CommentsSection extends StatelessWidget {
   const _CommentsSection({required this.eventId, required this.ownerUid});
   final String eventId;
@@ -210,7 +282,7 @@ class _CommentsSection extends StatelessWidget {
         Text('Kommentare', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
 
-        // Liste
+        // Liste der Kommentare
         StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: commentsQuery.snapshots(),
           builder: (context, snap) {
@@ -247,6 +319,7 @@ class _CommentsSection extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Avatar
                       CircleAvatar(
                         radius: 16,
                         backgroundImage:
@@ -256,6 +329,8 @@ class _CommentsSection extends StatelessWidget {
                             : null,
                       ),
                       const SizedBox(width: 10),
+
+                      // Text + Like Row
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,6 +350,8 @@ class _CommentsSection extends StatelessWidget {
                           ],
                         ),
                       ),
+
+                      // löschen Icon
                       if (canDelete)
                         IconButton(
                           icon: const Icon(Icons.delete_outline),
@@ -296,15 +373,22 @@ class _CommentsSection extends StatelessWidget {
         ),
 
         const SizedBox(height: 8),
+
+        // Eingabe
         _CommentInput(eventId: eventId),
       ],
     );
   }
 }
 
-/// Herz + Count unter einem Kommentar
+// ========== Likes pro Kommentar ==========
+
 class _CommentLikeRow extends StatelessWidget {
-  const _CommentLikeRow({required this.eventId, required this.commentId});
+  const _CommentLikeRow({
+    required this.eventId,
+    required this.commentId,
+  });
+
   final String eventId;
   final String commentId;
 
@@ -321,7 +405,10 @@ class _CommentLikeRow extends StatelessWidget {
     return Row(
       children: [
         if (uid == null)
-          IconButton(onPressed: null, icon: const Icon(Icons.favorite_border))
+          IconButton(
+            onPressed: null,
+            icon: const Icon(Icons.favorite_border),
+          )
         else
           StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
             stream: ref.doc(uid).snapshots(),
@@ -339,18 +426,25 @@ class _CommentLikeRow extends StatelessWidget {
                   if (exists) {
                     await me.delete();
                   } else {
-                    await me
-                        .set({'uid': uid, 'at': FieldValue.serverTimestamp()});
+                    await me.set({
+                      'uid': uid,
+                      'at': FieldValue.serverTimestamp(),
+                    });
                   }
                 },
               );
             },
           ),
+
+        // Anzahl Likes am Kommentar
         StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: ref.snapshots(),
           builder: (context, snap) {
             final c = snap.data?.docs.length ?? 0;
-            return Text('$c', style: TextStyle(color: AppColors.dunkelbraun));
+            return Text(
+              '$c',
+              style: TextStyle(color: AppColors.dunkelbraun),
+            );
           },
         ),
       ],
@@ -358,7 +452,8 @@ class _CommentLikeRow extends StatelessWidget {
   }
 }
 
-/// Eingabezeile zum Kommentieren
+// ========== Kommentar-Eingabe ==========
+
 class _CommentInput extends StatefulWidget {
   const _CommentInput({required this.eventId});
   final String eventId;
@@ -385,7 +480,7 @@ class _CommentInputState extends State<_CommentInput> {
 
     setState(() => _sending = true);
     try {
-      // Profildaten für Anzeige-Namen / Foto
+      // user profil info holen
       final uDoc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
       final u = uDoc.data() ?? {};
@@ -415,6 +510,7 @@ class _CommentInputState extends State<_CommentInput> {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        // Textfeld
         Expanded(
           child: TextField(
             controller: _ctrl,
@@ -428,11 +524,14 @@ class _CommentInputState extends State<_CommentInput> {
           ),
         ),
         const SizedBox(width: 8),
+
+        // Senden-Button
         _sending
             ? const SizedBox(
                 width: 28,
                 height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2))
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
             : IconButton(
                 icon: const Icon(Icons.send),
                 onPressed: _send,

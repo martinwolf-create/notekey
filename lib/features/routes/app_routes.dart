@@ -15,7 +15,8 @@ import 'package:notekey_app/features/screens/settings/settings_screen.dart';
 import 'package:notekey_app/features/screens/forum/forum_home_screen.dart';
 import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_list_screen.dart'
     as veranstaltungen_list;
-import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_edit_screen.dart';
+import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_create_screen.dart';
+import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_bearbeiten_screen.dart';
 import 'package:notekey_app/features/screens/forum/todo/todo_screen.dart';
 import 'package:notekey_app/features/screens/forum/suchfind/suchfind_home_screen.dart';
 import 'package:notekey_app/features/screens/forum/suchfind/such/such_list_screen.dart';
@@ -50,6 +51,8 @@ class AppRoutes {
   static const String forum = "/forum";
   static const String veranstaltungen = "/forum/veranstaltungen";
   static const String veranstaltungenList = "/forum/veranstaltungen_list";
+  static const String veranstaltungBearbeiten =
+      "/forum/veranstaltungen/bearbeiten";
   static const String todo = "/forum/todo";
   static const String suchfindHome = '/suchfind';
   static const String suchList = '/suchfind/such';
@@ -57,6 +60,7 @@ class AppRoutes {
 
   // Games
   static const String memory = '/memory';
+  static const String memoryGame = '/memory/game';
 
   // E-Mail-Verify
   static const String verify = '/verify';
@@ -99,6 +103,18 @@ class AppRoutes {
           builder: (_) =>
               const veranstaltungen_list.VeranstaltungenListScreen(),
         );
+      case AppRoutes.veranstaltungen:
+        return MaterialPageRoute(
+          builder: (_) => VeranstaltungenScreen(
+            preset: settings.arguments as veranstaltungen_list.CreatePreset?,
+          ),
+        );
+      case AppRoutes.veranstaltungBearbeiten:
+        return MaterialPageRoute(
+          builder: (_) => VeranstaltungBearbeitenScreen(
+            veranstaltungId: settings.arguments as String,
+          ),
+        );
       case AppRoutes.todo:
         return MaterialPageRoute(builder: (_) => const TodoScreen());
       case AppRoutes.suchfindHome:
@@ -111,6 +127,14 @@ class AppRoutes {
       // ---------- Games ----------
       case AppRoutes.memory:
         return MaterialPageRoute(builder: (_) => const MemoryStartScreen());
+      case AppRoutes.memoryGame:
+        return MaterialPageRoute(
+          builder: (_) => const MemoryGameScreen(
+            vsComputer: true,
+            player1Name: 'Player 1',
+          ),
+        );
+
       // oder: return MaterialPageRoute(builder: (_) => const MemoryGameScreen());
 
       // ---------- Verify ----------

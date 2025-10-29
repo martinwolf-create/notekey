@@ -24,6 +24,7 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
   final _titleController = TextEditingController();
   final _infoController = TextEditingController();
   final _infoNode = FocusNode();
+  final _dateController = TextEditingController();
 
   DateTime? _date;
   String? _imagePath;
@@ -59,6 +60,7 @@ class _VeranstaltungenScreenState extends State<VeranstaltungenScreen> {
     _titleController.dispose();
     _infoController.dispose();
     _infoNode.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 

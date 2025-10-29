@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 
-import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_edit_screen.dart';
+import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_create_screen.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
 
