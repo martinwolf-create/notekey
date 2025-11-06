@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:notekey_app/features/auth/firebase_auth_repository.dart';
 import 'package:notekey_app/features/routes/app_routes.dart';
 import 'package:notekey_app/features/themes/colors.dart';
+import 'package:notekey_app/features/screens/profil/presentation/tabs/friends_tab.dart';
 
 // Detail-Screen der Veranstaltung
 import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_detail_screen.dart';
@@ -19,7 +20,8 @@ class ProfileScreen extends StatelessWidget {
     final repo = FirebaseAuthRepository();
 
     return DefaultTabController(
-      length: 6, // Übersicht, Bilder, Videos, Likes, Events, Gespeichert
+      length:
+          7, // Übersicht, Bilder, Videos, Likes, Events, Gespeichert, Freunde
       child: Scaffold(
         backgroundColor: AppColors.hellbeige,
         body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -77,6 +79,7 @@ class ProfileScreen extends StatelessWidget {
                         Tab(text: 'Likes'),
                         Tab(text: 'Events'),
                         Tab(text: 'Gespeichert'),
+                        Tab(text: 'Freunde'),
                       ],
                     ),
                   ),
@@ -107,6 +110,7 @@ class ProfileScreen extends StatelessWidget {
                   _LikesTab(),
                   _EventsTab(),
                   _SavedTab(),
+                  FriendsTab(),
                 ],
               ),
             );
