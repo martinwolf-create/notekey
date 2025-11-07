@@ -11,20 +11,53 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
+  late final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
+  Future<Map<String, dynamic>> _getUserInfo(String uid) async {
+    final doc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    if (!doc.exists) {
+      return {'username': 'Unbekannt', 'profileImageUrl': ''};
+    }
+    final d = doc.data()!;
+    return {
+      'username': (d['username'] ?? 'Unbekannt') as String,
+      'profileImageUrl': (d['profileImageUrl'] ?? '') as String,
+    };
+  }
+
+  /// accept == true  -> status: accepted + friends/{uidA_uidB}
+  /// accept == false -> status: rejected
   Future<void> _respondToRequest(
       String requestId, String fromUserId, bool accept) async {
-    final firestore = FirebaseFirestore.instance;
+    final db = FirebaseFirestore.instance;
+    final batch = db.batch();
+
+    final reqRef = db.collection('friend_requests').doc(requestId);
 
     if (accept) {
-      await firestore.collection('friends').add({
-        'users': [currentUserId, fromUserId],
+      // Eindeutige Friend-Doc-ID: sortierte UIDs, damit nur EIN Dokument existiert
+      final ids = [currentUserId, fromUserId]..sort();
+      final friendDocId = '${ids[0]}_${ids[1]}';
+      final friendRef = db.collection('friends').doc(friendDocId);
+
+      batch.set(friendRef, {
+        'users': ids,
         'since': FieldValue.serverTimestamp(),
+      });
+      batch.update(reqRef, {
+        'status': 'accepted',
+        'handledAt': FieldValue.serverTimestamp(),
+      });
+    } else {
+      batch.update(reqRef, {
+        'status': 'rejected',
+        'handledAt': FieldValue.serverTimestamp(),
       });
     }
 
-    await firestore.collection('friend_requests').doc(requestId).delete();
+    await batch.commit();
+    // StreamBuilder aktualisiert sich automatisch; kein setState nötig.
   }
 
   @override
@@ -33,73 +66,110 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       backgroundColor: AppColors.hellbeige,
       appBar: AppBar(
         backgroundColor: AppColors.dunkelbraun,
-        iconTheme: const IconThemeData(color: AppColors.hellbeige),
-        title: const Text(
-          '📬 Freundschaftsanfragen',
-          style: TextStyle(
-            color: AppColors.hellbeige,
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
-          ),
-        ),
+        foregroundColor: AppColors.hellbeige,
+        title: const Text('📬 Freundschaftsanfragen'),
+        automaticallyImplyLeading: true,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('friend_requests')
-            .where('toUserId', isEqualTo: currentUserId)
+            .where('receiverId', isEqualTo: currentUserId)
+            .where('status', isEqualTo: 'pending') // wichtig!
+            .orderBy('createdAt', descending: true)
             .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
             return const Center(
-                child: CircularProgressIndicator(color: AppColors.dunkelbraun));
+                child: CircularProgressIndicator(color: AppColors.goldbraun));
           }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          final docs = snap.data?.docs ?? [];
+          if (docs.isEmpty) {
             return const Center(
               child: Text(
-                'Keine neuen Anfragen.',
+                'Keine neuen Anfragen',
                 style: TextStyle(color: AppColors.dunkelbraun, fontSize: 16),
               ),
             );
           }
 
-          final requests = snapshot.data!.docs;
-
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: requests.length,
-            itemBuilder: (context, index) {
-              final request = requests[index];
-              final fromUserId = request['fromUserId'];
+            itemCount: docs.length,
+            itemBuilder: (context, i) {
+              final request = docs[i];
+              final requestId = request.id;
+              final fromUserId = request['senderId'] as String;
 
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: AppColors.goldbraun,
-                    child: Icon(Icons.person, color: AppColors.hellbeige),
-                  ),
-                  title: Text(
-                    'Anfrage von: $fromUserId',
-                    style: const TextStyle(color: AppColors.dunkelbraun),
-                  ),
-                  subtitle: Row(
-                    children: [
-                      TextButton(
-                        onPressed: () =>
-                            _respondToRequest(request.id, fromUserId, true),
-                        child: const Text('Annehmen'),
+              return FutureBuilder<Map<String, dynamic>>(
+                future: _getUserInfo(fromUserId),
+                builder: (context, userSnap) {
+                  final username = userSnap.data?['username'] ?? 'Lädt...';
+                  final profileImageUrl =
+                      userSnap.data?['profileImageUrl'] ?? '';
+
+                  return Card(
+                    color: AppColors.rosebeige, // leichtes Panel
+                    elevation: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      leading: CircleAvatar(
+                        radius: 28,
+                        backgroundColor: AppColors.goldbraun,
+                        backgroundImage: profileImageUrl.isNotEmpty
+                            ? NetworkImage(profileImageUrl)
+                            : null,
+                        child: profileImageUrl.isEmpty
+                            ? const Icon(Icons.person, color: Colors.white)
+                            : null,
                       ),
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: () =>
-                            _respondToRequest(request.id, fromUserId, false),
-                        child: const Text('Ablehnen'),
+                      title: Text(
+                        'Anfrage von: $username',
+                        style: const TextStyle(
+                          color: AppColors.dunkelbraun,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 18,
+                        ),
                       ),
-                    ],
-                  ),
-                ),
+                      subtitle: Row(
+                        children: [
+                          TextButton(
+                            onPressed: () =>
+                                _respondToRequest(requestId, fromUserId, true),
+                            style: TextButton.styleFrom(
+                              foregroundColor:
+                                  AppColors.goldbraun, // dein Braun-Ton
+                              textStyle:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            child: const Text('Annehmen'),
+                          ),
+                          const SizedBox(width: 16),
+                          TextButton(
+                            onPressed: () =>
+                                _respondToRequest(requestId, fromUserId, false),
+                            style: TextButton.styleFrom(
+                              foregroundColor:
+                                  AppColors.dunkelbraun.withOpacity(0.85),
+                              textStyle:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            child: const Text('Ablehnen'),
+                          ),
+                        ],
+                      ),
+                      onTap: () {
+                        // Optional: zum externen Profil springen
+                        Navigator.pushNamed(context, '/profilExtern',
+                            arguments: fromUserId);
+                      },
+                    ),
+                  );
+                },
               );
             },
           );

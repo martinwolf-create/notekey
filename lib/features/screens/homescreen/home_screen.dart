@@ -24,6 +24,8 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.hellbeige,
+
+      //  AppBar mit fixiertem Builder für Menü-Zugriff
       appBar: AppBar(
         backgroundColor: AppColors.dunkelbraun,
         elevation: 0,
@@ -44,23 +46,32 @@ class HomeScreen extends StatelessWidget {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.menu, color: AppColors.hellbeige),
-            onPressed: () {
-              Scaffold.of(context).openEndDrawer(); // oder dein Hamburger-Menü
-            },
+          // 🔧 Hier ist der entscheidende Fix:
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu, color: AppColors.hellbeige),
+              onPressed: () {
+                Scaffold.of(context).openEndDrawer();
+              },
+            ),
           ),
         ],
       ),
+
+      //  Drawer wieder aktiv
       endDrawer: const HamburgerDrawer(),
+
+      // BottomNavigationBar bleibt wie gehabt
       bottomNavigationBar: BottomNavBar(
         currentIndex: 0,
         onTap: (index) {
           if (index == 3) {
-            Navigator.pushNamed(context, AppRoutes.profil); // Profil
+            Navigator.pushNamed(context, AppRoutes.profil); // Profil öffnen
           }
         },
       ),
+
+      // Inhalt bleibt unverändert
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

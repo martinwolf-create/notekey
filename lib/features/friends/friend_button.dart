@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:notekey_app/features/friends/friend_service.dart';
 import 'package:notekey_app/features/friends/friendship_state.dart';
-import 'package:notekey_app/features/screens/friends/friend_service.dart';
-import 'package:notekey_app/features/screens/friends/friendship_state.dart';
+import 'package:notekey_app/features/friends/friend_service.dart';
+import 'package:notekey_app/features/friends/friendship_state.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 
 class FriendButton extends StatefulWidget {

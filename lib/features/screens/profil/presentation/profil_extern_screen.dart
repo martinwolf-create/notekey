@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:notekey_app/features/themes/colors.dart';
-import 'package:notekey_app/features/screens/friends/friend_button.dart';
+import 'package:notekey_app/features/friends/friend_button.dart';
 
 class ProfilExternScreen extends StatelessWidget {
   final String userId;

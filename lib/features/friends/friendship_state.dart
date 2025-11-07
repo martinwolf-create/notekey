@@ -1,1 +1,6 @@
-// TODO Implement this library.
+enum FriendshipState {
+  none,
+  pending,
+  requestReceived,
+  accepted,
+}
