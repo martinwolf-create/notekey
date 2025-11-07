@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:notekey_app/features/themes/colors.dart';
+import 'package:notekey_app/features/routes/app_routes.dart';
 
 class BasicTopBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final bool showBack;
   final bool showMenu;
+  final bool showNotifications;
   final EdgeInsets titlePadding;
 
   const BasicTopBar({
@@ -13,10 +15,10 @@ class BasicTopBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     this.showBack = false,
     this.showMenu = false,
+    this.showNotifications = false,
     this.titlePadding = const EdgeInsets.only(top: 0),
   });
 
-  // höhe und co der toolbar
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
@@ -37,6 +39,7 @@ class BasicTopBar extends StatelessWidget implements PreferredSizeWidget {
             height: kToolbarHeight,
             child: Stack(
               children: [
+                // Zurück-Button ODER Benachrichtigungs-Glocke (links)
                 if (showBack)
                   Positioned(
                     left: 8,
@@ -48,7 +51,22 @@ class BasicTopBar extends StatelessWidget implements PreferredSizeWidget {
                       onPressed: () => Navigator.of(context).maybePop(),
                       tooltip: 'Zurück',
                     ),
+                  )
+                else if (showNotifications)
+                  Positioned(
+                    left: 8,
+                    top: 0,
+                    bottom: 0,
+                    child: IconButton(
+                      icon: const Icon(Icons.notifications_none_rounded,
+                          color: AppColors.hellbeige),
+                      tooltip: 'Benachrichtigungen',
+                      onPressed: () =>
+                          Navigator.pushNamed(context, AppRoutes.notifications),
+                    ),
                   ),
+
+                // Titel in der Mitte
                 Center(
                   child: Padding(
                     padding: titlePadding,
@@ -62,6 +80,8 @@ class BasicTopBar extends StatelessWidget implements PreferredSizeWidget {
                     ),
                   ),
                 ),
+
+                // Hamburger Menü (rechts)
                 if (showMenu)
                   Positioned(
                     right: 8,

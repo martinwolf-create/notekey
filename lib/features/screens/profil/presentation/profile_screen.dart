@@ -8,6 +8,7 @@ import 'package:notekey_app/features/auth/firebase_auth_repository.dart';
 import 'package:notekey_app/features/routes/app_routes.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:notekey_app/features/screens/profil/presentation/tabs/friends_tab.dart';
+import 'package:notekey_app/features/screens/profil/presentation/profil_extern_screen.dart';
 
 // Detail-Screen der Veranstaltung
 import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_detail_screen.dart';

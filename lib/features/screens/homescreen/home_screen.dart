@@ -24,27 +24,43 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.hellbeige,
-
-      appBar: const PreferredSize(
-        preferredSize: Size.fromHeight(60),
-        child: BasicTopBar(
-          title: 'NOTEkey',
-          showBack: false,
-          showMenu: true,
+      appBar: AppBar(
+        backgroundColor: AppColors.dunkelbraun,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.notifications_none_rounded,
+              color: AppColors.hellbeige),
+          onPressed: () {
+            Navigator.pushNamed(context, '/notifications');
+          },
         ),
+        title: const Text(
+          'NOTEkey',
+          style: TextStyle(
+            color: AppColors.hellbeige,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.menu, color: AppColors.hellbeige),
+            onPressed: () {
+              Scaffold.of(context).openEndDrawer(); // oder dein Hamburger-Menü
+            },
+          ),
+        ],
       ),
-
-      // HamburgerButton (openEndDrawer)
       endDrawer: const HamburgerDrawer(),
-
       bottomNavigationBar: BottomNavBar(
         currentIndex: 0,
         onTap: (index) {
-          if (index == 3)
+          if (index == 3) {
             Navigator.pushNamed(context, AppRoutes.profil); // Profil
+          }
         },
       ),
-
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

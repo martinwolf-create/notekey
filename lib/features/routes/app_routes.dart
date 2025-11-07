@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 // Screens
 import 'package:notekey_app/features/screens/profil/presentation/profile_screen.dart';
 import 'package:notekey_app/features/screens/profil/presentation/edit_profile_screen.dart';
+import 'package:notekey_app/features/screens/profil/presentation/profil_extern_screen.dart';
 
 import 'package:notekey_app/features/screens/splash_theater/splash_theater_screen.dart';
 import 'package:notekey_app/features/screens/splash_theater/splash_theater2.dart';
@@ -23,6 +24,7 @@ import 'package:notekey_app/features/screens/forum/suchfind/such/such_list_scree
 import 'package:notekey_app/features/screens/forum/suchfind/find/find_list_screen.dart';
 import 'package:notekey_app/features/screens/games/memory/memory_start_screen.dart';
 import 'package:notekey_app/features/screens/games/memory/memory_game_screen.dart';
+import 'package:notekey_app/features/screens/notifications/notifications_screen.dart';
 
 // Verify-Screen mit Alias (robust gegen Namenskonflikte)
 import 'package:notekey_app/features/auth/verify_email_screen.dart'
@@ -44,8 +46,10 @@ class AppRoutes {
   static const String home = "/home";
   static const String profil = "/profil";
   static const String editProfil = "/profil/edit";
+  static const String profilExtern = "/profil_extern";
   static const String chat = "/chat";
   static const String settings = "/settings";
+  static const String notifications = "/notifications";
 
   // Forum
   static const String forum = "/forum";
@@ -89,8 +93,15 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
       case AppRoutes.editProfil:
         return MaterialPageRoute(builder: (_) => const EditProfileScreen());
+      case AppRoutes.profilExtern:
+        final userId = settings.arguments as String;
+        return MaterialPageRoute(
+          builder: (_) => ProfilExternScreen(userId: userId),
+        );
       case AppRoutes.settings:
         return MaterialPageRoute(builder: (_) => const SettingsScreen());
+      case AppRoutes.notifications:
+        return MaterialPageRoute(builder: (_) => const NotificationsScreen());
       case AppRoutes.chat:
         return MaterialPageRoute(builder: (_) => const ChatHomeScreen());
 
@@ -134,8 +145,6 @@ class AppRoutes {
             player1Name: 'Player 1',
           ),
         );
-
-      // oder: return MaterialPageRoute(builder: (_) => const MemoryGameScreen());
 
       // ---------- Verify ----------
       case AppRoutes.verify:
