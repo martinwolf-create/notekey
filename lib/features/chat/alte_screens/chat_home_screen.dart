@@ -3,11 +3,11 @@ import "package:notekey_app/features/widgets/topbar/base_scaffold.dart";
 import "package:notekey_app/features/themes/colors.dart";
 
 // Use-Cases
-import "package:notekey_app/core/detail_repo/chat/functions/fetch_recent_chats.dart";
-import "package:notekey_app/core/detail_repo/chat/functions/get_thread.dart";
+import "package:notekey_app/features/chat/alte_screens/functions/fetch_recent_chats.dart";
+import "package:notekey_app/features/chat/alte_screens/functions/get_thread.dart";
 
 // Models
-import "package:notekey_app/core/detail_repo/chat/domain/chat_thread.dart";
+import "package:notekey_app/features/chat/alte_screens/data/domain/chat_thread.dart";
 
 import "conversation_page.dart";
 

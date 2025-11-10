@@ -3,14 +3,14 @@ import "package:notekey_app/features/widgets/topbar/base_scaffold.dart";
 import "package:notekey_app/features/themes/colors.dart";
 
 // Use-Cases
-import "package:notekey_app/core/detail_repo/chat/functions/watch_messages.dart";
-import "package:notekey_app/core/detail_repo/chat/functions/send_message.dart";
-import "package:notekey_app/core/detail_repo/chat/functions/get_me.dart";
-import "package:notekey_app/core/detail_repo/chat/functions/get_thread.dart";
+import "package:notekey_app/features/chat/alte_screens/functions/watch_messages.dart";
+import "package:notekey_app/features/chat/alte_screens/functions/send_message.dart";
+import "package:notekey_app/features/chat/alte_screens/functions/get_me.dart";
+import "package:notekey_app/features/chat/alte_screens/functions/get_thread.dart";
 
 // Models
-import "package:notekey_app/core/detail_repo/chat/domain/chat_message.dart";
-import "package:notekey_app/core/detail_repo/chat/domain/user_profile.dart";
+import "package:notekey_app/features/chat/alte_screens/data/domain/chat_message.dart";
+import "package:notekey_app/features/chat/alte_screens/data/domain/user_profile.dart";
 
 class ConversationPage extends StatefulWidget {
   final String chatId;

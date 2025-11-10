@@ -56,4 +56,6 @@ class FriendService {
       await doc.reference.delete();
     }
   }
+
+  Future<void> deleteFriendship(String userId) async {}
 }

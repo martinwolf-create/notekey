@@ -1,5 +1,5 @@
 import '../data/in_memory_chat_repository.dart';
-import '../domain/chat_thread.dart';
+import '../data/domain/chat_thread.dart';
 
 Future<List<ChatThread>> fetchRecentChats({int limit = 10}) async {
   final repo = InMemoryChatRepository.instance;

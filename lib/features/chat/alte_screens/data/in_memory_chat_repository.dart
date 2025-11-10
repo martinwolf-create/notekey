@@ -1,10 +1,10 @@
 import "dart:async";
 import "dart:math";
 
-import "../domain/chat_message.dart";
-import "../domain/chat_repository.dart";
-import "../domain/chat_thread.dart";
-import "../domain/user_profile.dart";
+import "domain/chat_message.dart";
+import "domain/chat_repository.dart";
+import "domain/chat_thread.dart";
+import "domain/user_profile.dart";
 
 class InMemoryChatRepository implements ChatRepository {
   InMemoryChatRepository._internal() {

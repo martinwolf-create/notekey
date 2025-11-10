@@ -1,7 +1,7 @@
 import 'package:notekey_app/core/repository/database_repository.dart';
 
 // Interfaces(funktion)
-import 'package:notekey_app/core/detail_repo/chat/domain/chat_repository.dart';
+import 'package:notekey_app/features/chat/alte_screens/data/domain/chat_repository.dart';
 import 'package:notekey_app/core/detail_repo/posts/domain/post_repository.dart';
 import 'package:notekey_app/core/detail_repo/events/domain/event_repository.dart';
 import 'package:notekey_app/core/detail_repo/calendar/data/calendar_repository.dart';
@@ -9,7 +9,7 @@ import 'package:notekey_app/core/detail_repo/friends/domain/friend_repository.da
 import 'package:notekey_app/core/detail_repo/notifications/domain/notification_repository.dart';
 
 // In-Memory...
-import 'package:notekey_app/core/detail_repo/chat/data/in_memory_chat_repository.dart';
+import 'package:notekey_app/features/chat/alte_screens/data/in_memory_chat_repository.dart';
 import 'package:notekey_app/core/detail_repo/posts/data/in_memory_post_repository.dart';
 import 'package:notekey_app/core/detail_repo/events/data/in_memory_event_repository.dart';
 import 'package:notekey_app/core/detail_repo/calendar/data/in_memory_calendar_repository.dart';

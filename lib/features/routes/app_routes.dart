@@ -11,7 +11,7 @@ import 'package:notekey_app/features/screens/homescreen/home_screen.dart';
 import 'package:notekey_app/features/screens/startscreen/startscreen.dart';
 import 'package:notekey_app/features/screens/signup/signup_screen.dart';
 import 'package:notekey_app/features/screens/signin/signin_screen.dart';
-import 'package:notekey_app/core/detail_repo/chat/chat_home_screen.dart';
+import 'package:notekey_app/features/chat/alte_screens/chat_home_screen.dart';
 import 'package:notekey_app/features/screens/settings/settings_screen.dart';
 import 'package:notekey_app/features/screens/forum/forum_home_screen.dart';
 import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_list_screen.dart'

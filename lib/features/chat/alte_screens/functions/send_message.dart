@@ -1,5 +1,5 @@
 import '../data/in_memory_chat_repository.dart';
-import '../domain/chat_message.dart';
+import '../data/domain/chat_message.dart';
 
 Future<void> sendMessage(String chatId, String text) {
   final repo = InMemoryChatRepository.instance;
