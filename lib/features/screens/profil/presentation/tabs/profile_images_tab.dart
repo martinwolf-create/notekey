@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:notekey_app/features/auth/firebase_auth_repository.dart';
-import 'package:notekey_app/features/routes/app_routes.dart';
+import 'package:notekey_app/routes/app_routes.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:notekey_app/features/screens/profil/presentation/tabs/profile_images_tab.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:notekey_app/features/auth/auth_repository.dart';
-import 'package:notekey_app/features/routes/app_routes.dart';
+import 'package:notekey_app/routes/app_routes.dart';
 
 class AuthGate extends StatelessWidget {
   final AuthRepository auth;

@@ -3,7 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:notekey_app/firebase_options.dart';
 
 import 'package:notekey_app/features/themes/colors.dart';
-import 'package:notekey_app/features/routes/app_routes.dart';
+import 'routes/app_routes.dart';
 
 import 'package:notekey_app/features/auth/auth_repository.dart';
 import 'package:notekey_app/features/auth/firebase_auth_repository.dart';

@@ -60,11 +60,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         .where('status', isEqualTo: 'pending')
         .snapshots();
 
+    // ✅ Mit type-Filter + orderBy (benötigt den Composite-Index)
     final notificationStream = FirebaseFirestore.instance
         .collection('notifications')
         .where('receiverId', isEqualTo: currentUserId)
         .where('type', isEqualTo: 'message')
-        // kein orderBy -> funktioniert ohne Index
+        .orderBy('createdAt', descending: true)
         .snapshots();
 
     return Scaffold(
@@ -78,19 +79,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       body: StreamBuilder<QuerySnapshot>(
         stream: friendRequestStream,
         builder: (context, reqSnap) {
+          if (reqSnap.hasError) {
+            return _errorBox('Fehler (Friend-Req): ${reqSnap.error}');
+          }
           final requestDocs = reqSnap.data?.docs ?? [];
 
           return StreamBuilder<QuerySnapshot>(
             stream: notificationStream,
             builder: (context, notiSnap) {
+              if (notiSnap.hasError) {
+                return _errorBox('Fehler (Notifications): ${notiSnap.error}');
+              }
+
               final notiDocs = notiSnap.data?.docs ?? [];
               final hasAny = requestDocs.isNotEmpty || notiDocs.isNotEmpty;
 
               if (reqSnap.connectionState == ConnectionState.waiting ||
                   notiSnap.connectionState == ConnectionState.waiting) {
                 return const Center(
-                    child:
-                        CircularProgressIndicator(color: AppColors.goldbraun));
+                  child: CircularProgressIndicator(color: AppColors.goldbraun),
+                );
               }
 
               if (!hasAny) {
@@ -105,7 +113,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
               final items = <Widget>[];
 
-              // Nachrichten
+              // 🔔 Nachrichten
               if (notiDocs.isNotEmpty) {
                 items.add(_sectionHeader('Nachrichten'));
                 for (final n in notiDocs) {
@@ -116,7 +124,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 }
               }
 
-              // Freundschaftsanfragen
+              // 🧑‍🤝‍🧑 Freundschaftsanfragen
               if (requestDocs.isNotEmpty) {
                 items.add(_sectionHeader('Freundschaftsanfragen'));
                 for (final req in requestDocs) {
@@ -134,7 +142,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           margin: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                           child: ListTile(
                             leading: CircleAvatar(
                               backgroundImage: imageUrl.isNotEmpty
@@ -150,8 +159,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             title: Text(
                               'Anfrage von: $username',
                               style: const TextStyle(
-                                  color: AppColors.dunkelbraun,
-                                  fontWeight: FontWeight.w600),
+                                color: AppColors.dunkelbraun,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             subtitle: Row(
                               children: [
@@ -169,8 +179,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               ],
                             ),
                             onTap: () => Navigator.pushNamed(
-                                context, '/profilExtern',
-                                arguments: fromUserId),
+                              context,
+                              '/profilExtern',
+                              arguments: fromUserId,
+                            ),
                           ),
                         );
                       },
@@ -179,7 +191,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 }
               }
 
-              return ListView(children: items);
+              final fromCache = notiSnap.data?.metadata.isFromCache == true ||
+                  reqSnap.data?.metadata.isFromCache == true;
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      children: items,
+                    ),
+                  ),
+                  if (fromCache)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '… aus Cache geladen – Serverdaten folgen',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.dunkelbraun,
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           );
         },
@@ -198,9 +233,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ),
       );
+
+  Widget _errorBox(String msg) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            msg,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.redAccent),
+          ),
+        ),
+      );
 }
 
-class _MessageNotificationTile extends StatelessWidget {
+// ----------------------------------------------------------
+// 🔥 Nachricht-Card mit stabilem Swipe-to-Delete (Fix)
+// ----------------------------------------------------------
+
+class _MessageNotificationTile extends StatefulWidget {
   final QueryDocumentSnapshot notifDoc;
   final Future<Map<String, dynamic>> Function(String uid) getUserInfo;
 
@@ -210,59 +260,105 @@ class _MessageNotificationTile extends StatelessWidget {
   });
 
   @override
+  State<_MessageNotificationTile> createState() =>
+      _MessageNotificationTileState();
+}
+
+class _MessageNotificationTileState extends State<_MessageNotificationTile> {
+  @override
   Widget build(BuildContext context) {
-    final data = notifDoc.data() as Map<String, dynamic>;
+    final data = widget.notifDoc.data() as Map<String, dynamic>;
     final senderId = data['senderId'] ?? '';
     final chatId = data['chatId'] ?? '';
     final text = data['text'] ?? 'Neue Nachricht';
     final isRead = data['read'] ?? false;
 
     return FutureBuilder<Map<String, dynamic>>(
-      future: getUserInfo(senderId),
+      future: widget.getUserInfo(senderId),
       builder: (context, snap) {
         final username = snap.data?['username'] ?? 'Unbekannt';
         final imageUrl = snap.data?['profileImageUrl'] ?? '';
 
-        return Card(
-          color: AppColors.rosebeige,
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: ListTile(
-            leading: CircleAvatar(
-              radius: 24,
-              backgroundImage:
-                  imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
-              backgroundColor: AppColors.goldbraun,
-              child: imageUrl.isEmpty
-                  ? const Icon(Icons.person, color: Colors.white)
-                  : null,
+        return Dismissible(
+          key: ValueKey(widget.notifDoc.id),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(16),
             ),
-            title: Text(username,
-                style: const TextStyle(
-                    color: AppColors.dunkelbraun, fontWeight: FontWeight.w600)),
-            subtitle: Text(
-              text,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: AppColors.dunkelbraun.withOpacity(0.8)),
-            ),
-            trailing: isRead
-                ? const SizedBox.shrink()
-                : const Icon(Icons.fiber_manual_record,
-                    size: 12, color: Colors.redAccent),
-            onTap: () async {
-              await notifDoc.reference.update({'read': true});
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChatScreen(
-                    chatId: chatId,
-                    otherUserName: username,
+            child: const Icon(Icons.delete, color: Colors.white, size: 28),
+          ),
+          confirmDismiss: (_) async {
+            // Animation darf sofort ablaufen
+            return true;
+          },
+          onDismissed: (_) async {
+            // Erst nach Animation löschen → kein Hänger
+            try {
+              await widget.notifDoc.reference.delete();
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Fehler beim Löschen: $e'),
+                    backgroundColor: Colors.redAccent,
                   ),
+                );
+              }
+            }
+          },
+          child: Card(
+            color: AppColors.rosebeige,
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: ListTile(
+              leading: CircleAvatar(
+                radius: 24,
+                backgroundImage:
+                    imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
+                backgroundColor: AppColors.goldbraun,
+                child: imageUrl.isEmpty
+                    ? const Icon(Icons.person, color: Colors.white)
+                    : null,
+              ),
+              title: Text(
+                username,
+                style: const TextStyle(
+                  color: AppColors.dunkelbraun,
+                  fontWeight: FontWeight.w600,
                 ),
-              );
-            },
+              ),
+              subtitle: Text(
+                text,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.dunkelbraun.withOpacity(0.8),
+                ),
+              ),
+              trailing: isRead
+                  ? const SizedBox.shrink()
+                  : const Icon(Icons.fiber_manual_record,
+                      size: 12, color: Colors.redAccent),
+              onTap: () async {
+                await widget.notifDoc.reference.update({'read': true});
+                if (!context.mounted) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChatScreen(
+                      chatId: chatId,
+                      otherUserName: username,
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         );
       },

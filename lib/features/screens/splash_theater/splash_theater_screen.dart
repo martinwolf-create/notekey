@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:notekey_app/features/routes/app_routes.dart';
+import 'package:notekey_app/routes/app_routes.dart';
 
 import 'package:notekey_app/features/screens/homescreen/home_screen.dart';
 import 'package:notekey_app/features/themes/theme_creative.dart';

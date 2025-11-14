@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
 
-// Screens
+// Profil & Auth
 import 'package:notekey_app/features/screens/profil/presentation/profile_screen.dart';
 import 'package:notekey_app/features/screens/profil/presentation/edit_profile_screen.dart';
 import 'package:notekey_app/features/screens/profil/presentation/profil_extern_screen.dart';
 
+// Splash
 import 'package:notekey_app/features/screens/splash_theater/splash_theater_screen.dart';
 import 'package:notekey_app/features/screens/splash_theater/splash_theater2.dart';
+
+// Start / Login
 import 'package:notekey_app/features/screens/homescreen/home_screen.dart';
 import 'package:notekey_app/features/screens/startscreen/startscreen.dart';
 import 'package:notekey_app/features/screens/signup/signup_screen.dart';
 import 'package:notekey_app/features/screens/signin/signin_screen.dart';
-import 'package:notekey_app/features/chat/alte_screens/chat_home_screen.dart';
+
+// Chat NEU
+import 'package:notekey_app/features/chat/chat_list_screen.dart';
+
+// Search
+import 'package:notekey_app/features/screens/search/search_screen.dart';
+
+// Settings & Notifications
 import 'package:notekey_app/features/screens/settings/settings_screen.dart';
+import 'package:notekey_app/features/screens/notifications/notifications_screen.dart';
+
+// Forum / Veranstaltungen
 import 'package:notekey_app/features/screens/forum/forum_home_screen.dart';
 import 'package:notekey_app/features/screens/forum/veranstaltung/veranstaltung_list_screen.dart'
     as veranstaltungen_list;
@@ -22,15 +35,15 @@ import 'package:notekey_app/features/screens/forum/todo/todo_screen.dart';
 import 'package:notekey_app/features/screens/forum/suchfind/suchfind_home_screen.dart';
 import 'package:notekey_app/features/screens/forum/suchfind/such/such_list_screen.dart';
 import 'package:notekey_app/features/screens/forum/suchfind/find/find_list_screen.dart';
+
+// Games
 import 'package:notekey_app/features/screens/games/memory/memory_start_screen.dart';
 import 'package:notekey_app/features/screens/games/memory/memory_game_screen.dart';
-import 'package:notekey_app/features/screens/notifications/notifications_screen.dart';
 
-// Verify-Screen mit Alias (robust gegen Namenskonflikte)
+// Verify
 import 'package:notekey_app/features/auth/verify_email_screen.dart'
     as verify_screen;
 
-// Repository bis in Auth-Screens
 import 'package:notekey_app/features/auth/auth_repository.dart';
 
 class AppRoutes {
@@ -44,10 +57,11 @@ class AppRoutes {
 
   // Hauptbereiche
   static const String home = "/home";
+  static const String search = "/search";
   static const String profil = "/profil";
   static const String editProfil = "/profil/edit";
   static const String profilExtern = "/profil_extern";
-  static const String chat = "/chat";
+  static const String chat = "/chat"; // NEU: ChatListScreen
   static const String settings = "/settings";
   static const String notifications = "/notifications";
 
@@ -66,19 +80,19 @@ class AppRoutes {
   static const String memory = '/memory';
   static const String memoryGame = '/memory/game';
 
-  // E-Mail-Verify
+  // Verify
   static const String verify = '/verify';
 
   static Route<dynamic> generateRoute(
       RouteSettings settings, AuthRepository auth) {
     switch (settings.name) {
-      // ---------- Splash ----------
+      // ---------- SPLASH ----------
       case AppRoutes.splash:
         return MaterialPageRoute(builder: (_) => const SplashTheaterScreen());
       case AppRoutes.splash2:
         return MaterialPageRoute(builder: (_) => const SplashTheater2Screen());
 
-      // ---------- Auth / Start ----------
+      // ---------- AUTH ----------
       case AppRoutes.start:
         return MaterialPageRoute(builder: (_) => const StartScreen());
       case AppRoutes.signup:
@@ -86,9 +100,11 @@ class AppRoutes {
       case AppRoutes.signin:
         return MaterialPageRoute(builder: (_) => SignInScreen(auth: auth));
 
-      // ---------- Hauptscreens ----------
+      // ---------- HAUPTBEREICHE ----------
       case AppRoutes.home:
         return MaterialPageRoute(builder: (_) => HomeScreen());
+      case AppRoutes.search:
+        return MaterialPageRoute(builder: (_) => const SearchScreen());
       case AppRoutes.profil:
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
       case AppRoutes.editProfil:
@@ -102,23 +118,19 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const SettingsScreen());
       case AppRoutes.notifications:
         return MaterialPageRoute(builder: (_) => const NotificationsScreen());
-      case AppRoutes.chat:
-        return MaterialPageRoute(builder: (_) => const ChatHomeScreen());
 
-      // ---------- Forum ----------
+      // ---------- CHAT (NEU, RICHTIG!) ----------
+      case AppRoutes.chat:
+        return MaterialPageRoute(builder: (_) => const ChatListScreen());
+
+      // ---------- FORUM ----------
       case AppRoutes.forum:
         return MaterialPageRoute(builder: (_) => const ForumHomeScreen());
-      case AppRoutes.veranstaltungen:
       case AppRoutes.veranstaltungenList:
+      case AppRoutes.veranstaltungen:
         return MaterialPageRoute(
           builder: (_) =>
               const veranstaltungen_list.VeranstaltungenListScreen(),
-        );
-      case AppRoutes.veranstaltungen:
-        return MaterialPageRoute(
-          builder: (_) => VeranstaltungenScreen(
-            preset: settings.arguments as veranstaltungen_list.CreatePreset?,
-          ),
         );
       case AppRoutes.veranstaltungBearbeiten:
         return MaterialPageRoute(
@@ -135,7 +147,7 @@ class AppRoutes {
       case AppRoutes.findList:
         return MaterialPageRoute(builder: (_) => const FindListScreen());
 
-      // ---------- Games ----------
+      // ---------- GAMES ----------
       case AppRoutes.memory:
         return MaterialPageRoute(builder: (_) => const MemoryStartScreen());
       case AppRoutes.memoryGame:
@@ -146,12 +158,12 @@ class AppRoutes {
           ),
         );
 
-      // ---------- Verify ----------
+      // ---------- VERIFY ----------
       case AppRoutes.verify:
         return MaterialPageRoute(
             builder: (_) => const verify_screen.VerifyEmailScreen());
 
-      // ---------- Default ----------
+      // ---------- DEFAULT ----------
       default:
         return MaterialPageRoute(
           builder: (_) => const Scaffold(

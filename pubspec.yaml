@@ -21,6 +21,10 @@ dependencies:
   path_provider: ^2.1.4
   path: ^1.9.0
 
+  
+  
+  image: ^4.1.7
+
   # Sonstiges
   cupertino_icons: ^1.0.8
   url_launcher: ^6.3.0
@@ -38,13 +42,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
   assets:
     - assets/images/
     - assets/icons/
     - assets/
-
-flutter_icons:
-  android: true
-  ios: true
-  image_path: "assets/notekey1024.png"
+    

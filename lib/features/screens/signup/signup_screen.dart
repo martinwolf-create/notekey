@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:notekey_app/features/auth/auth_repository.dart';
-import 'package:notekey_app/features/routes/app_routes.dart';
+import 'package:notekey_app/routes/app_routes.dart';
 import 'package:notekey_app/features/themes/colors.dart';
 
 class SignUpScreen extends StatefulWidget {
