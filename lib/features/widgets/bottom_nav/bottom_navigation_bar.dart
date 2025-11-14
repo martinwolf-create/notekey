@@ -10,6 +10,8 @@ class BottomNavBar extends StatelessWidget {
   });
 
   void _navigate(BuildContext context, int index) {
+    if (index == currentIndex) return; // Kein doppeltes Laden
+
     switch (index) {
       case 0:
         Navigator.pushReplacementNamed(context, '/home');
@@ -21,7 +23,7 @@ class BottomNavBar extends StatelessWidget {
         Navigator.pushReplacementNamed(context, '/forum');
         break;
       case 3:
-        Navigator.pushReplacementNamed(context, '/chat'); // ChatListScreen
+        Navigator.pushReplacementNamed(context, '/chatList');
         break;
       case 4:
         Navigator.pushReplacementNamed(context, '/profil');
@@ -39,25 +41,24 @@ class BottomNavBar extends StatelessWidget {
       _NavSpec(label: 'Profil', icon: Icons.person_rounded),
     ];
 
-    return SafeArea(
-      top: false,
-      child: Container(
-        height: 72,
-        color: AppColors.dunkelbraun,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(items.length, (i) {
-            final active = currentIndex == i;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => _navigate(context, i),
-                child: _NavItem(
-                  spec: items[i],
-                  active: active,
+    return Container(
+      color: AppColors.dunkelbraun,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64, // perfekte iOS Größe
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(items.length, (i) {
+              final active = currentIndex == i;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => _navigate(context, i),
+                  child: _NavItem(spec: items[i], active: active),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
         ),
       ),
     );
@@ -86,7 +87,7 @@ class _NavItem extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(spec.icon, size: 24, color: color),
+        Icon(spec.icon, size: 22, color: color),
         const SizedBox(height: 4),
         Text(
           spec.label,

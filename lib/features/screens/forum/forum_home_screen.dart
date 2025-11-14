@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:notekey_app/features/themes/colors.dart';
-import 'package:notekey_app/features/widgets/topbar/basic_topbar.dart';
 import 'package:notekey_app/routes/app_routes.dart';
 import 'package:notekey_app/features/screens/forum/todo/todo_list_screen.dart';
 import 'package:notekey_app/features/screens/forum/notenscan/noten_scan_screen.dart';
@@ -12,11 +11,33 @@ class ForumHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.hellbeige,
-      appBar: const BasicTopBar(
-        title: "Forum",
-        showBack: true,
-        showMenu: true,
+
+      // 🔥 Eigene AppBar mit funktionierendem Back-Button
+      appBar: AppBar(
+        backgroundColor: AppColors.dunkelbraun,
+        foregroundColor: AppColors.hellbeige,
+        title: const Text(
+          "Forum",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              // Wenn es eine vorherige Seite im Stack gibt → normal zurück
+              Navigator.pop(context);
+            } else {
+              // Wenn du z.B. über die BottomBar hier gelandet bist → zurück nach Home
+              Navigator.pushReplacementNamed(context, AppRoutes.home);
+            }
+          },
+        ),
       ),
+
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
