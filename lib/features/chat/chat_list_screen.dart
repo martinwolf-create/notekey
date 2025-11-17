@@ -13,43 +13,39 @@ class ChatListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
 
-    if (currentUser == null) {
-      return const Scaffold(
-        body: Center(
-          child: Text("Nicht eingeloggt.", style: TextStyle(fontSize: 16)),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: AppColors.hellbeige,
-
-      // Tabs haben KEIN Back!
       appBar: AppBar(
-        backgroundColor: AppColors.dunkelbraun,
-        foregroundColor: AppColors.hellbeige,
         title: const Text("Chats"),
         centerTitle: true,
+        backgroundColor: AppColors.dunkelbraun,
+        foregroundColor: AppColors.hellbeige,
       ),
-
       bottomNavigationBar: const BottomNavBar(currentIndex: 3),
-
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance
-            .collection('chat_rooms')
-            .where('participants', arrayContains: currentUser.uid)
-            .orderBy('lastMessageTime', descending: true)
+            .collection('chats')
+            .where('participants', arrayContains: currentUser!.uid)
             .snapshots(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                "Fehler: ${snapshot.error}",
+                style: const TextStyle(color: Colors.red),
+              ),
+            );
+          }
+
           if (!snapshot.hasData) {
             return const Center(
               child: CircularProgressIndicator(color: Colors.brown),
             );
           }
 
-          final rooms = snapshot.data!.docs;
+          final docs = snapshot.data!.docs;
 
-          if (rooms.isEmpty) {
+          if (docs.isEmpty) {
             return const Center(
               child: Text(
                 "Keine Chats vorhanden.",
@@ -58,81 +54,65 @@ class ChatListScreen extends StatelessWidget {
             );
           }
 
+          // Manuell sortieren (da lastMessageTime optional)
+          docs.sort((a, b) {
+            final t1 = a.data()['lastMessageTime'];
+            final t2 = b.data()['lastMessageTime'];
+            if (t1 == null && t2 == null) return 0;
+            if (t1 == null) return 1;
+            if (t2 == null) return -1;
+            return (t2 as Timestamp).compareTo(t1 as Timestamp);
+          });
+
           return ListView.builder(
             padding: const EdgeInsets.only(bottom: 90),
-            itemCount: rooms.length,
-            itemBuilder: (context, i) {
-              final data = rooms[i].data();
-              final participants = data['participants'] as List;
-              final otherUserId = participants.firstWhere(
-                (id) => id != currentUser.uid,
-              );
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final chat = docs[index].data();
+              final chatId = docs[index].id;
 
-              final lastMessage = data['lastMessage'] ?? "";
-              final Timestamp? ts = data['lastMessageTime'];
-              final DateTime? lastTime = ts?.toDate();
+              final participants = List<String>.from(chat['participants']);
+              final otherUser =
+                  participants.firstWhere((id) => id != currentUser.uid);
 
-              return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              final lastMessage = chat['lastMessage'] ?? "Keine Nachrichten";
+              final time = chat['lastMessageTime'] as Timestamp?;
+
+              return FutureBuilder(
                 future: FirebaseFirestore.instance
                     .collection('users')
-                    .doc(otherUserId)
+                    .doc(otherUser)
                     .get(),
-                builder: (context, snap) {
-                  if (!snap.hasData) {
+                builder: (context, userSnap) {
+                  if (!userSnap.hasData) {
                     return const ListTile(title: Text("Lade..."));
                   }
 
-                  final user = snap.data!.data() ?? {};
-                  final username = user['username'] ?? "Unbekannt";
-                  final profileImage = user['profilbild'] ?? "";
+                  final u = userSnap.data!.data()!;
+                  final username = u['username'] ?? "Unbekannt";
+                  final profileImage = u['profileImageUrl'] ?? "";
 
                   return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
                     leading: CircleAvatar(
-                      radius: 26,
-                      backgroundColor: AppColors.goldbraun.withOpacity(0.25),
                       backgroundImage: profileImage.isNotEmpty
                           ? NetworkImage(profileImage)
                           : null,
                       child: profileImage.isEmpty
-                          ? const Icon(Icons.person, color: Colors.white)
+                          ? const Icon(Icons.person)
                           : null,
                     ),
-                    title: Text(
-                      username,
-                      style: const TextStyle(
-                        color: AppColors.dunkelbraun,
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    subtitle: Text(
-                      lastMessage.isEmpty ? "Keine Nachrichten" : lastMessage,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 14,
-                      ),
-                    ),
-                    trailing: lastTime == null
+                    title: Text(username),
+                    subtitle: Text(lastMessage),
+                    trailing: time == null
                         ? null
                         : Text(
-                            "${lastTime.hour.toString().padLeft(2, '0')}:${lastTime.minute.toString().padLeft(2, '0')}",
-                            style: const TextStyle(
-                              color: Colors.black45,
-                              fontSize: 13,
-                            ),
-                          ),
+                            "${time.toDate().hour.toString().padLeft(2, '0')}:${time.toDate().minute.toString().padLeft(2, '0')}"),
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => ChatScreen(
-                            chatId: rooms[i].id,
+                            chatId: chatId,
                             otherUserName: username,
                           ),
                         ),

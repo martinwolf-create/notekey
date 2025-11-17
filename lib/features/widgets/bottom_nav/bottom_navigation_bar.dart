@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:notekey_app/features/themes/colors.dart';
+import 'package:notekey_app/routes/app_routes.dart';
 
 class BottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -10,30 +11,35 @@ class BottomNavBar extends StatelessWidget {
   });
 
   void _navigate(BuildContext context, int index) {
-    if (index == currentIndex) return; // Kein doppeltes Laden
+    // Wenn bereits aktiv → nichts tun
+    if (index == currentIndex) return;
 
     switch (index) {
-      case 0:
-        Navigator.pushReplacementNamed(context, '/home');
+      case 0: // Home
+        Navigator.pushNamed(context, AppRoutes.home);
         break;
-      case 1:
-        Navigator.pushReplacementNamed(context, '/search');
+
+      case 1: // Suche
+        Navigator.pushNamed(context, '/search');
         break;
-      case 2:
-        Navigator.pushReplacementNamed(context, '/forum');
+
+      case 2: // Forum
+        Navigator.pushNamed(context, AppRoutes.forum);
         break;
-      case 3:
-        Navigator.pushReplacementNamed(context, '/chatList');
+
+      case 3: // Chat → ChatListScreen
+        Navigator.pushNamed(context, AppRoutes.chat);
         break;
-      case 4:
-        Navigator.pushReplacementNamed(context, '/profil');
+
+      case 4: // Profil
+        Navigator.pushNamed(context, AppRoutes.profil);
         break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final items = const <_NavSpec>[
+    const items = <_NavSpec>[
       _NavSpec(label: 'Home', icon: Icons.home_rounded),
       _NavSpec(label: 'Suche', icon: Icons.search_rounded),
       _NavSpec(label: 'Forum', icon: Icons.forum_rounded),
@@ -46,7 +52,7 @@ class BottomNavBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 64, // perfekte iOS Größe
+          height: 64,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(items.length, (i) {
