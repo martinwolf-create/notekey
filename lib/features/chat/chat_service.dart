@@ -2,10 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ChatService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final _db = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
 
-  /// Erstellt Chat oder liefert vorhandenen Chat (ID = sortierte UIDs)
+  /// Chat-ID (kombiniert aus beiden User-IDs, sortiert)
   Future<String> getOrCreateChatWith(String otherUserId) async {
     final me = _auth.currentUser!;
     final ids = [me.uid, otherUserId]..sort();
@@ -13,63 +13,73 @@ class ChatService {
 
     final chatRef = _db.collection('chats').doc(chatId);
 
-    // Chat-Dokument erstellen (Regeln erlauben NUR diese Felder!)
     await chatRef.set({
       'participants': ids,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'lastMessage': '',
+      // lastMessageTime kommt beim ersten Senden
     }, SetOptions(merge: true));
 
     return chatId;
   }
 
-  /// Nachricht senden + Chat Übersicht aktualisieren
+  /// Text- oder Bildnachricht senden (+ Notification + lastMessageTime)
   Future<void> sendMessage({
     required String chatId,
     required String text,
+    String? imageUrl,
   }) async {
     final me = _auth.currentUser!;
     final chatRef = _db.collection('chats').doc(chatId);
     final msgRef = chatRef.collection('messages').doc();
 
     final chatSnap = await chatRef.get();
-    final data = chatSnap.data()!;
-    final List<dynamic> participants = data['participants'];
-    final receiverId =
-        participants.firstWhere((id) => id != me.uid, orElse: () => me.uid);
+    if (!chatSnap.exists) {
+      throw Exception("Chat nicht gefunden: $chatId");
+    }
+
+    final chatData = chatSnap.data() as Map<String, dynamic>;
+    final participants = List<String>.from(chatData['participants'] ?? []);
+    if (participants.length != 2) {
+      throw Exception("Ungültige Teilnehmerliste");
+    }
+
+    final receiverId = participants.firstWhere((id) => id != me.uid);
+
+    final String trimmed = text.trim();
+    final String preview = trimmed.isNotEmpty
+        ? trimmed
+        : (imageUrl != null && imageUrl.isNotEmpty ? '📷 Foto' : '');
 
     await _db.runTransaction((tx) async {
-      // Nachricht speichern
       tx.set(msgRef, {
         'senderId': me.uid,
-        'text': text,
+        'text': trimmed,
+        'imageUrl': imageUrl ?? '',
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Chat aktualisieren
       tx.update(chatRef, {
-        'lastMessage': text,
-        'lastMessageTime':
-            FieldValue.serverTimestamp(), // ← erlaubt bei UPDATE!
+        'lastMessage': preview,
+        'lastMessageTime': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Notification erstellen
       final notifRef = _db.collection('notifications').doc();
       tx.set(notifRef, {
         'receiverId': receiverId,
         'senderId': me.uid,
         'type': 'message',
         'chatId': chatId,
-        'text': text,
+        'text': preview,
         'read': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
     });
   }
 
-  /// Nachrichtenstream
+  /// Stream der Nachrichten in zeitlicher Reihenfolge
   Stream<QuerySnapshot<Map<String, dynamic>>> messageStream(String chatId) {
     return _db
         .collection('chats')
